@@ -1,0 +1,920 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Payroll Management System — Indus Projects Pvt. Ltd.</title>
+<link href="https://cdnjs.cloudflare.com/ajax/libs/bootstrap/5.3.2/css/bootstrap.min.css" rel="stylesheet">
+<link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css" rel="stylesheet">
+<link href="css/style.css" rel="stylesheet">
+<style>
+#sidebar{overflow-x:hidden}
+.sticky-col{position:sticky;left:0;background:#fff;z-index:2;min-width:160px}
+.att-table-wrap{overflow-x:auto;max-height:70vh;overflow-y:auto}
+.nav-tabs .nav-link.active{background:#fff}
+.emp-form-modal .modal-dialog{max-width:900px}
+.att-cell{cursor:pointer;transition:transform .1s}.att-cell:hover{transform:scale(1.2)}
+</style>
+</head>
+<body>
+
+<!-- ══ LOADING OVERLAY ═══════════════════════════════════════════ -->
+<div id="loadingOverlay" style="display:flex;position:fixed;inset:0;background:rgba(255,255,255,0.92);z-index:99999;align-items:center;justify-content:center;flex-direction:column;gap:16px">
+  <div style="width:50px;height:50px;border:5px solid #e3e3e3;border-top-color:#2d7dd2;border-radius:50%;animation:spin 1s linear infinite"></div>
+  <div style="color:#1a3c5e;font-size:16px;font-weight:600">Loading Payroll System...</div>
+  <style>@keyframes spin{to{transform:rotate(360deg)}}</style>
+</div>
+
+<!-- ══ SIDEBAR ══════════════════════════════════════════════════ -->
+<nav id="sidebar">
+  <div class="brand">
+    <h5><i class="fas fa-building me-2"></i>Indus Projects</h5>
+    <small>Payroll Management System</small>
+  </div>
+  <div class="nav-section">Main</div>
+  <a class="nav-link" data-section="dashboard" onclick="APP.nav('dashboard')"><i class="fas fa-tachometer-alt"></i>Dashboard</a>
+  <div class="nav-section">HR &amp; Employees</div>
+  <a class="nav-link" data-section="employees" onclick="APP.nav('employees')"><i class="fas fa-users"></i>Employee Register</a>
+  <a class="nav-link" data-section="attendance" onclick="APP.nav('attendance')"><i class="fas fa-calendar-check"></i>Attendance</a>
+  <a class="nav-link" data-section="leaves" onclick="APP.nav('leaves')"><i class="fas fa-calendar-alt"></i>Leave Management</a>
+  <div class="nav-section">Assets &amp; Payroll</div>
+  <a class="nav-link" data-section="assets" onclick="APP.nav('assets')"><i class="fas fa-boxes"></i>Asset Register</a>
+  <a class="nav-link" data-section="payroll" onclick="APP.nav('payroll')"><i class="fas fa-money-bill-wave"></i>Payroll</a>
+  <a class="nav-link" data-section="registers" onclick="APP.nav('registers')"><i class="fas fa-book"></i>Registers</a>
+  <div class="nav-section">Workflow</div>
+  <a class="nav-link" data-section="advances" onclick="APP.nav('advances')"><i class="fas fa-hand-holding-usd"></i>Advances</a>
+  <a class="nav-link" data-section="approvals" onclick="APP.nav('approvals')"><i class="fas fa-thumbs-up"></i>Approvals <span class="badge bg-danger pending-badge" style="display:none">0</span></a>
+  <div class="nav-section">System</div>
+  <a class="nav-link" data-section="settings" onclick="APP.nav('settings')"><i class="fas fa-cog"></i>Settings</a>
+</nav>
+
+<!-- ══ HEADER ════════════════════════════════════════════════════ -->
+<div id="header">
+  <div class="page-title" id="pageTitle">Dashboard</div>
+  <button class="btn btn-sm btn-outline-secondary" onclick="ATT.openSelfService()"><i class="fas fa-fingerprint me-1"></i>Punch In/Out</button>
+  <button class="btn btn-sm btn-outline-primary ms-2" onclick="APP.refreshData()" title="Refresh data from server"><i class="fas fa-sync-alt me-1"></i>Refresh</button>
+  <div class="user-info">
+    <div class="avatar">IP</div>
+    <span>Indus Projects</span>
+  </div>
+</div>
+
+<!-- ══ TOAST CONTAINER ═══════════════════════════════════════════ -->
+<div id="toastContainer" class="toast-container position-fixed bottom-0 end-0 p-3" style="z-index:9999"></div>
+
+<!-- ══ MAIN CONTENT ══════════════════════════════════════════════ -->
+<div id="main">
+
+<!-- ━━ DASHBOARD ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ -->
+<div id="sec_dashboard" class="section-pane">
+  <div class="row g-3 mb-4">
+    <div class="col-6 col-md-3">
+      <div class="stat-card bg-primary"><div class="d-flex justify-content-between"><div><div class="stat-label">Active Employees</div><div class="stat-num" id="dash_totalEmp">0</div></div><i class="fas fa-users"></i></div></div>
+    </div>
+    <div class="col-6 col-md-3">
+      <div class="stat-card" style="background:#28a745"><div class="d-flex justify-content-between"><div><div class="stat-label">Present Today</div><div class="stat-num" id="dash_presentToday">0</div></div><i class="fas fa-user-check"></i></div></div>
+    </div>
+    <div class="col-6 col-md-3">
+      <div class="stat-card bg-warning"><div class="d-flex justify-content-between"><div><div class="stat-label">Pending Approvals</div><div class="stat-num" id="dash_pendingApprovals">0</div></div><i class="fas fa-clock"></i></div></div>
+    </div>
+    <div class="col-6 col-md-3">
+      <div class="stat-card" style="background:#17a2b8"><div class="d-flex justify-content-between"><div><div class="stat-label">Total Assets</div><div class="stat-num" id="dash_totalAssets">0</div></div><i class="fas fa-boxes"></i></div></div>
+    </div>
+  </div>
+  <div class="row g-3">
+    <div class="col-md-4">
+      <div class="card h-100">
+        <div class="card-header d-flex justify-content-between align-items-center">
+          <span><i class="fas fa-calendar me-2 text-primary"></i>Recent Leave Requests</span>
+          <button class="btn btn-sm btn-outline-primary" onclick="APP.nav('approvals')">View All</button>
+        </div>
+        <div class="card-body p-3" id="dash_recentLeaves"></div>
+      </div>
+    </div>
+    <div class="col-md-4">
+      <div class="card h-100">
+        <div class="card-header"><i class="fas fa-birthday-cake me-2 text-warning"></i>Birthdays Today</div>
+        <div class="card-body p-3" id="dash_birthdays"></div>
+      </div>
+    </div>
+    <div class="col-md-4">
+      <div class="card h-100">
+        <div class="card-header"><i class="fas fa-money-bill-wave me-2 text-success"></i>This Month's Payroll</div>
+        <div class="card-body d-flex flex-column align-items-center justify-content-center">
+          <div class="fs-13 text-muted">Total Net Pay</div>
+          <div class="display-6 fw-700 text-success" id="dash_monthPayroll">₹0.00</div>
+          <button class="btn btn-sm btn-outline-success mt-3" onclick="APP.nav('payroll')">Process Payroll</button>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ━━ EMPLOYEES ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ -->
+<div id="sec_employees" class="section-pane">
+  <div class="d-flex justify-content-between align-items-center mb-3 flex-wrap gap-2">
+    <div class="d-flex gap-2 flex-wrap">
+      <input type="text" id="empSearch" class="form-control form-control-sm" placeholder="Search..." style="width:200px" oninput="EMP.render()">
+      <select id="empDeptFilter" class="form-select form-select-sm" style="width:160px" onchange="EMP.render()"><option value="">All Departments</option></select>
+      <select id="empStatFilter" class="form-select form-select-sm" style="width:140px" onchange="EMP.render()">
+        <option value="">All Status</option><option value="active">Active</option><option value="inactive">Inactive</option><option value="resigned">Resigned</option>
+      </select>
+    </div>
+    <button class="btn btn-primary btn-sm" onclick="EMP.openForm()"><i class="fas fa-plus me-1"></i>Add Employee</button>
+  </div>
+  <div class="card">
+    <div class="table-responsive">
+      <table class="table table-hover mb-0">
+        <thead><tr><th>Emp Code</th><th>Name / Designation</th><th>Department</th><th>Phone</th><th>Joining Date</th><th>Gross Salary</th><th>Status</th><th>Actions</th></tr></thead>
+        <tbody id="empTableBody"></tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<!-- ━━ ATTENDANCE ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ -->
+<div id="sec_attendance" class="section-pane">
+  <ul class="nav nav-tabs mb-3">
+    <li class="nav-item"><a class="nav-link active" data-bs-toggle="tab" href="#attMonthly">Monthly View</a></li>
+    <li class="nav-item"><a class="nav-link" data-bs-toggle="tab" href="#attDaily">Daily Report</a></li>
+  </ul>
+  <div class="tab-content">
+    <div class="tab-pane fade show active" id="attMonthly">
+      <div class="d-flex justify-content-between align-items-center mb-3 flex-wrap gap-2">
+        <div class="d-flex align-items-center gap-2">
+          <button class="btn btn-sm btn-outline-secondary" onclick="ATT.prevMonth()"><i class="fas fa-chevron-left"></i></button>
+          <h6 class="mb-0" id="attMonthLabel"></h6>
+          <button class="btn btn-sm btn-outline-secondary" onclick="ATT.nextMonth()"><i class="fas fa-chevron-right"></i></button>
+        </div>
+        <div class="d-flex gap-2 flex-wrap">
+          <div class="d-flex gap-1 align-items-center fs-12">
+            <span class="att-cell att-P" style="width:20px;height:20px;font-size:9px">P</span>Present
+            <span class="att-cell att-A" style="width:20px;height:20px;font-size:9px">A</span>Absent
+            <span class="att-cell att-H" style="width:20px;height:20px;font-size:9px">H</span>Half Day
+            <span class="att-cell att-L" style="width:20px;height:20px;font-size:9px">L</span>Leave
+            <span class="att-cell att-WO" style="width:20px;height:20px;font-size:9px">W</span>Week Off
+          </div>
+          <button class="btn btn-sm btn-outline-success" onclick="ATT.exportMonthly()"><i class="fas fa-download me-1"></i>Export CSV</button>
+        </div>
+      </div>
+      <div class="card">
+        <div class="att-table-wrap">
+          <table class="table table-bordered table-sm mb-0" style="min-width:1200px">
+            <thead id="attHeaderRow"></thead>
+            <tbody id="attTableBody"></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+    <div class="tab-pane fade" id="attDaily">
+      <div class="d-flex gap-2 align-items-center mb-3">
+        <label class="form-label mb-0 fw-500">Date:</label>
+        <input type="date" id="dailyAttDate" class="form-control form-control-sm" style="width:160px" onchange="ATT.renderDailyReport()">
+        <button class="btn btn-sm btn-outline-primary" onclick="ATT.renderDailyReport()"><i class="fas fa-search me-1"></i>Show</button>
+      </div>
+      <div class="card">
+        <div class="table-responsive">
+          <table class="table table-hover mb-0">
+            <thead><tr><th>Emp Code</th><th>Name</th><th>Designation</th><th>In Time</th><th>In Location</th><th>Out Time</th><th>Out Location</th><th>Status</th></tr></thead>
+            <tbody id="dailyAttBody"></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ━━ ASSETS ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ -->
+<div id="sec_assets" class="section-pane">
+  <ul class="nav nav-tabs mb-3">
+    <li class="nav-item"><a class="nav-link active" data-bs-toggle="tab" href="#assetRegister">Asset Register</a></li>
+    <li class="nav-item"><a class="nav-link" data-bs-toggle="tab" href="#assetByEmp">By Employee</a></li>
+  </ul>
+  <div class="tab-content">
+    <div class="tab-pane fade show active" id="assetRegister">
+      <div class="row g-2 mb-3">
+        <div class="col-md-3"><div class="card text-center p-2"><div class="text-muted fs-12">Total Assets</div><div class="fw-700 fs-5" id="assetStatTotal">0</div></div></div>
+        <div class="col-md-3"><div class="card text-center p-2"><div class="text-muted fs-12">Assigned</div><div class="fw-700 fs-5 text-primary" id="assetStatAssigned">0</div></div></div>
+        <div class="col-md-3"><div class="card text-center p-2"><div class="text-muted fs-12">Available</div><div class="fw-700 fs-5 text-success" id="assetStatAvailable">0</div></div></div>
+      </div>
+      <div class="d-flex justify-content-between align-items-center mb-3 flex-wrap gap-2">
+        <div class="d-flex gap-2 flex-wrap">
+          <input type="text" id="assetSearch" class="form-control form-control-sm" placeholder="Search assets..." style="width:200px" oninput="ASSETS.render()">
+          <select id="assetCatFilter" class="form-select form-select-sm" style="width:160px" onchange="ASSETS.render()"><option value="">All Categories</option></select>
+          <select id="assetStatFilter" class="form-select form-select-sm" style="width:140px" onchange="ASSETS.render()">
+            <option value="">All Status</option><option value="available">Available</option><option value="assigned">Assigned</option><option value="under-repair">Under Repair</option><option value="disposed">Disposed</option>
+          </select>
+        </div>
+        <div class="d-flex gap-2">
+          <button class="btn btn-sm btn-outline-primary" onclick="ASSETS.openAssignModal()"><i class="fas fa-exchange-alt me-1"></i>Assign Asset</button>
+          <button class="btn btn-sm btn-primary" onclick="ASSETS.openForm()"><i class="fas fa-plus me-1"></i>Add Asset</button>
+        </div>
+      </div>
+      <div class="card">
+        <div class="table-responsive">
+          <table class="table table-hover mb-0">
+            <thead><tr><th>Asset Code</th><th>Name</th><th>Category</th><th>Brand/Model</th><th>Serial No.</th><th>Purchase Date</th><th>Value</th><th>Assigned To</th><th>Status</th><th>Actions</th></tr></thead>
+            <tbody id="assetTableBody"></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+    <div class="tab-pane fade" id="assetByEmp">
+      <div class="d-flex gap-2 align-items-center mb-3">
+        <label class="form-label mb-0 fw-500">Employee:</label>
+        <select id="empAssetFilter" class="form-select form-select-sm" style="width:280px" onchange="ASSETS.renderEmpAssets()">
+          <option value="">Select Employee</option>
+        </select>
+      </div>
+      <div class="card">
+        <div class="table-responsive">
+          <table class="table table-hover mb-0">
+            <thead><tr><th>Asset Code</th><th>Name</th><th>Category</th><th>Serial No.</th><th>Assigned Date</th><th>Condition</th></tr></thead>
+            <tbody id="empAssetTableBody"><tr><td colspan="6" class="text-center text-muted py-4">Select an employee to view assets</td></tr></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ━━ LEAVES ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ -->
+<div id="sec_leaves" class="section-pane">
+  <ul class="nav nav-tabs mb-3">
+    <li class="nav-item"><a class="nav-link active" data-bs-toggle="tab" href="#leaveApps">Applications</a></li>
+    <li class="nav-item"><a class="nav-link" data-bs-toggle="tab" href="#leaveBalReg">Leave Balance Register</a></li>
+    <li class="nav-item"><a class="nav-link" data-bs-toggle="tab" href="#leaveEncash">Leave Encashment</a></li>
+  </ul>
+  <div class="tab-content">
+    <div class="tab-pane fade show active" id="leaveApps">
+      <div class="d-flex justify-content-between align-items-center mb-3 flex-wrap gap-2">
+        <div class="d-flex gap-2 flex-wrap">
+          <input type="text" id="leaveSearch" class="form-control form-control-sm" placeholder="Search..." style="width:180px" oninput="LEAVES.render()">
+          <select id="leaveStatFilter" class="form-select form-select-sm" style="width:130px" onchange="LEAVES.render()">
+            <option value="">All Status</option><option value="pending">Pending</option><option value="approved">Approved</option><option value="rejected">Rejected</option>
+          </select>
+          <select id="leaveYearFilter" class="form-select form-select-sm" style="width:100px" onchange="LEAVES.render()">
+            <option value="2026">2026</option><option value="2025">2025</option><option value="2027">2027</option>
+          </select>
+        </div>
+        <button class="btn btn-primary btn-sm" onclick="LEAVES.openApplication()"><i class="fas fa-plus me-1"></i>Apply Leave</button>
+      </div>
+      <div class="card">
+        <div class="table-responsive">
+          <table class="table table-hover mb-0">
+            <thead><tr><th>Employee</th><th>Type</th><th>From</th><th>To</th><th>Days</th><th>Applied</th><th>Reason</th><th>Status</th><th>Actions</th></tr></thead>
+            <tbody id="leaveTableBody"></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+    <div class="tab-pane fade" id="leaveBalReg">
+      <div class="d-flex justify-content-between align-items-center mb-3">
+        <div class="d-flex gap-2 align-items-center">
+          <label class="form-label mb-0 fw-500">Year:</label>
+          <select id="balRegYear" class="form-select form-select-sm" style="width:100px" onchange="LEAVES.renderBalanceRegister()">
+            <option>2026</option><option>2025</option><option>2027</option>
+          </select>
+        </div>
+      </div>
+      <div class="card">
+        <div class="table-responsive">
+          <table class="table table-hover mb-0">
+            <thead><tr><th>Emp Code</th><th>Name</th><th>Designation</th>
+              <th colspan="3" class="text-center">Casual</th>
+              <th colspan="3" class="text-center">Sick</th>
+              <th colspan="3" class="text-center">Earned</th>
+              <th>Total Balance</th></tr>
+              <tr><th></th><th></th><th></th>
+                <th class="text-center">Ent.</th><th class="text-center">Used</th><th class="text-center">Bal.</th>
+                <th class="text-center">Ent.</th><th class="text-center">Used</th><th class="text-center">Bal.</th>
+                <th class="text-center">Ent.</th><th class="text-center">Used</th><th class="text-center">Bal.</th>
+                <th></th>
+              </tr>
+            </thead>
+            <tbody id="leaveBalRegBody"></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+    <div class="tab-pane fade" id="leaveEncash">
+      <div class="d-flex justify-content-between align-items-center mb-3">
+        <div class="d-flex gap-2 align-items-center">
+          <label class="form-label mb-0 fw-500">Year:</label>
+          <select id="encashYear" class="form-select form-select-sm" style="width:100px" onchange="LEAVES.renderEncashmentRegister()"><option>2026</option><option>2025</option><option>2027</option></select>
+        </div>
+        <button class="btn btn-primary btn-sm" onclick="LEAVES.openEncashmentForm()"><i class="fas fa-plus me-1"></i>Add Encashment</button>
+      </div>
+      <div class="card">
+        <div class="table-responsive">
+          <table class="table table-hover mb-0">
+            <thead><tr><th>Emp Code</th><th>Name</th><th>Date</th><th>Leave Type</th><th>Days</th><th>Per Day</th><th>Amount</th><th>Status</th></tr></thead>
+            <tbody id="encashRegBody"></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ━━ PAYROLL ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ -->
+<div id="sec_payroll" class="section-pane">
+  <div class="d-flex justify-content-between align-items-center mb-3 flex-wrap gap-2">
+    <div class="d-flex gap-2 align-items-center flex-wrap">
+      <label class="form-label mb-0 fw-500">Month:</label>
+      <select id="payMonth" class="form-select form-select-sm" style="width:130px" onchange="PAY.renderProcessing()">
+        <option value="1">January</option><option value="2">February</option><option value="3">March</option>
+        <option value="4">April</option><option value="5">May</option><option value="6">June</option>
+        <option value="7">July</option><option value="8">August</option><option value="9">September</option>
+        <option value="10">October</option><option value="11">November</option><option value="12">December</option>
+      </select>
+      <select id="payYear" class="form-select form-select-sm" style="width:90px" onchange="PAY.renderProcessing()">
+        <option value="2025">2025</option><option value="2026">2026</option><option value="2027">2027</option>
+      </select>
+    </div>
+    <div class="d-flex gap-2">
+      <button class="btn btn-sm btn-outline-primary" onclick="PAY.processAll()"><i class="fas fa-cog me-1"></i>Process All</button>
+      <button class="btn btn-sm btn-outline-success" onclick="PAY.markAllPaid()"><i class="fas fa-check-double me-1"></i>Mark All Paid</button>
+      <button class="btn btn-sm btn-outline-secondary" onclick="PAY.exportPayroll()"><i class="fas fa-download me-1"></i>Export</button>
+    </div>
+  </div>
+  <div class="row g-2 mb-3">
+    <div class="col-md-4"><div class="card text-center p-2"><div class="text-muted fs-12">Total Gross Pay</div><div class="fw-700 text-primary" id="payTotalGross">₹0.00</div></div></div>
+    <div class="col-md-4"><div class="card text-center p-2"><div class="text-muted fs-12">Total Deductions</div><div class="fw-700 text-danger" id="payTotalDed">₹0.00</div></div></div>
+    <div class="col-md-4"><div class="card text-center p-2"><div class="text-muted fs-12">Total Net Pay</div><div class="fw-700 text-success" id="payTotalNet">₹0.00</div></div></div>
+  </div>
+  <div class="card">
+    <div class="table-responsive">
+      <table class="table table-hover mb-0">
+        <thead><tr><th>Employee</th><th>Designation</th><th class="text-center">Working Days</th><th class="text-center">Present</th><th class="text-center">Absent</th><th class="text-end">Gross Pay</th><th class="text-end">Deductions</th><th class="text-end">Net Pay</th><th>Status</th><th>Actions</th></tr></thead>
+        <tbody id="payProcessBody"></tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<!-- ━━ REGISTERS ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ -->
+<div id="sec_registers" class="section-pane">
+  <ul class="nav nav-tabs mb-3">
+    <li class="nav-item"><a class="nav-link active" data-bs-toggle="tab" href="#regBonus">Bonus Register</a></li>
+    <li class="nav-item"><a class="nav-link" data-bs-toggle="tab" href="#regLTA">LTA Register</a></li>
+  </ul>
+  <div class="tab-content">
+    <div class="tab-pane fade show active" id="regBonus">
+      <div class="d-flex justify-content-between align-items-center mb-3">
+        <div class="d-flex gap-2 align-items-center">
+          <label class="form-label mb-0 fw-500">Year:</label>
+          <select id="bonusYear" class="form-select form-select-sm" style="width:100px" onchange="PAY.renderBonusRegister()"><option>2026</option><option>2025</option><option>2027</option></select>
+        </div>
+        <button class="btn btn-primary btn-sm" onclick="PAY.openBonusForm()"><i class="fas fa-plus me-1"></i>Add Bonus</button>
+      </div>
+      <div class="card">
+        <div class="table-responsive">
+          <table class="table table-hover mb-0">
+            <thead><tr><th>Emp Code</th><th>Name</th><th>Designation</th><th>Department</th><th>Basic</th><th>Month</th><th>Bonus Type</th><th>Amount</th><th>Status</th><th>Remarks</th></tr></thead>
+            <tbody id="bonusRegBody"></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+    <div class="tab-pane fade" id="regLTA">
+      <div class="d-flex justify-content-between align-items-center mb-3">
+        <div class="d-flex gap-2 align-items-center">
+          <label class="form-label mb-0 fw-500">Year:</label>
+          <select id="ltaYear" class="form-select form-select-sm" style="width:100px" onchange="PAY.renderLTARegister()"><option>2026</option><option>2025</option><option>2027</option></select>
+        </div>
+        <button class="btn btn-primary btn-sm" onclick="PAY.openLTAForm()"><i class="fas fa-plus me-1"></i>Add LTA Claim</button>
+      </div>
+      <div class="card">
+        <div class="table-responsive">
+          <table class="table table-hover mb-0">
+            <thead><tr><th>Emp Code</th><th>Name</th><th>Claim Date</th><th>Journey</th><th>Travel Period</th><th>LTA Entitlement</th><th>Claim Amount</th><th>Status</th></tr></thead>
+            <tbody id="ltaRegBody"></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ━━ ADVANCES ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ -->
+<div id="sec_advances" class="section-pane">
+  <div class="d-flex justify-content-between align-items-center mb-3">
+    <h6 class="mb-0">Advance Requisition Register</h6>
+    <button class="btn btn-primary btn-sm" onclick="APPROVALS.openAdvanceForm()"><i class="fas fa-plus me-1"></i>New Advance Request</button>
+  </div>
+  <div class="card">
+    <div class="table-responsive">
+      <table class="table table-hover mb-0">
+        <thead><tr><th>Request Date</th><th>Employee</th><th>Amount</th><th>Purpose</th><th>Repayment</th><th>Paid</th><th>Balance</th><th>Status</th><th>Actions</th></tr></thead>
+        <tbody id="advanceRegBody"></tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<!-- ━━ APPROVALS ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ -->
+<div id="sec_approvals" class="section-pane">
+  <ul class="nav nav-tabs mb-3">
+    <li class="nav-item"><a class="nav-link active" data-bs-toggle="tab" href="#pendingLeaveTab">Pending Leaves</a></li>
+    <li class="nav-item"><a class="nav-link" data-bs-toggle="tab" href="#pendingAdvTab">Pending Advances</a></li>
+    <li class="nav-item"><a class="nav-link" data-bs-toggle="tab" href="#approvalLevels">Approval Levels</a></li>
+  </ul>
+  <div class="tab-content">
+    <div class="tab-pane fade show active" id="pendingLeaveTab">
+      <div class="card">
+        <div class="card-header fw-600">Leave Approval Queue</div>
+        <div class="table-responsive">
+          <table class="table table-hover mb-0">
+            <thead><tr><th>Applied Date</th><th>Employee</th><th>Type</th><th>Period</th><th>Days</th><th>Balance</th><th>Reason</th><th>Actions</th></tr></thead>
+            <tbody id="pendingLeavesBody"></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+    <div class="tab-pane fade" id="pendingAdvTab">
+      <div class="card">
+        <div class="card-header fw-600">Advance Approval Queue</div>
+        <div class="table-responsive">
+          <table class="table table-hover mb-0">
+            <thead><tr><th>Request Date</th><th>Employee</th><th>Amount</th><th>Purpose</th><th>Repayment</th><th>Actions</th></tr></thead>
+            <tbody id="pendingAdvancesBody"></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+    <div class="tab-pane fade" id="approvalLevels">
+      <div class="row g-3">
+        <div class="col-md-4">
+          <div class="card"><div class="card-header d-flex justify-content-between align-items-center">Leave Approval<button class="btn btn-xs btn-outline-primary" onclick="APPROVALS.addLevel('leave')"><i class="fas fa-plus"></i></button></div>
+          <div class="card-body" id="approvalLevel_leave"></div></div>
+        </div>
+        <div class="col-md-4">
+          <div class="card"><div class="card-header d-flex justify-content-between align-items-center">Advance Approval<button class="btn btn-xs btn-outline-primary" onclick="APPROVALS.addLevel('advance')"><i class="fas fa-plus"></i></button></div>
+          <div class="card-body" id="approvalLevel_advance"></div></div>
+        </div>
+        <div class="col-md-4">
+          <div class="card"><div class="card-header d-flex justify-content-between align-items-center">Payroll Approval<button class="btn btn-xs btn-outline-primary" onclick="APPROVALS.addLevel('payroll')"><i class="fas fa-plus"></i></button></div>
+          <div class="card-body" id="approvalLevel_payroll"></div></div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ━━ SETTINGS ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ -->
+<div id="sec_settings" class="section-pane">
+  <div class="row g-3">
+    <div class="col-md-6">
+      <div class="card">
+        <div class="card-header fw-600"><i class="fas fa-building me-2"></i>Company Settings</div>
+        <div class="card-body">
+          <div class="mb-3"><label class="form-label">Company Name</label>
+            <input type="text" id="setting_companyName" class="form-control" value="Indus Projects Pvt. Ltd."></div>
+          <div class="mb-3"><label class="form-label">Company Address</label>
+            <textarea id="setting_companyAddress" class="form-control" rows="2"></textarea></div>
+          <button class="btn btn-primary btn-sm" onclick="APP.saveSettings()"><i class="fas fa-save me-1"></i>Save Settings</button>
+        </div>
+      </div>
+    </div>
+    <div class="col-md-6">
+      <div class="card">
+        <div class="card-header fw-600"><i class="fas fa-database me-2"></i>Data Management</div>
+        <div class="card-body d-flex flex-column gap-2">
+          <button class="btn btn-outline-success btn-sm" onclick="APP.exportAllData()"><i class="fas fa-download me-1"></i>Export All Data (Backup)</button>
+          <div class="d-flex gap-2">
+            <input type="file" id="importFile" accept=".json" class="form-control form-control-sm" onchange="APP.importData(this.files[0])">
+          </div>
+          <small class="text-muted">Import a JSON backup to restore data</small>
+        </div>
+      </div>
+    </div>
+    <div class="col-md-6">
+      <div class="card">
+        <div class="card-header fw-600"><i class="fas fa-calendar-times me-2"></i>Holiday Management</div>
+        <div class="card-body">
+          <div class="d-flex gap-2 mb-3">
+            <input type="date" id="newHolidayDate" class="form-control form-control-sm" style="width:150px">
+            <input type="text" id="newHolidayName" class="form-control form-control-sm" placeholder="Holiday name">
+            <button class="btn btn-primary btn-sm" onclick="APP.addHoliday()"><i class="fas fa-plus"></i></button>
+          </div>
+          <div class="table-responsive" style="max-height:200px;overflow-y:auto">
+            <table class="table table-sm mb-0"><thead><tr><th>Date</th><th>Name</th><th></th></tr></thead>
+            <tbody id="holidayTableBody"></tbody></table>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+</div><!-- /main -->
+
+<!-- ══════════════════ MODALS ══════════════════════════════════ -->
+
+<!-- Employee Form Modal -->
+<div class="modal fade emp-form-modal" id="empFormModal" tabindex="-1">
+  <div class="modal-dialog modal-xl"><div class="modal-content">
+    <div class="modal-header"><h5 class="modal-title" id="empFormTitle">Employee Form</h5><button type="button" class="btn-close" data-bs-dismiss="modal"></button></div>
+    <div class="modal-body"><form id="empForm">
+      <ul class="nav nav-tabs mb-3">
+        <li class="nav-item"><a class="nav-link active" data-bs-toggle="tab" href="#ef1">Personal</a></li>
+        <li class="nav-item"><a class="nav-link" data-bs-toggle="tab" href="#ef2">Employment</a></li>
+        <li class="nav-item"><a class="nav-link" data-bs-toggle="tab" href="#ef3">Address &amp; Bank</a></li>
+        <li class="nav-item"><a class="nav-link" data-bs-toggle="tab" href="#ef4">Salary &amp; Benefits</a></li>
+      </ul>
+      <div class="tab-content">
+        <!-- Tab 1: Personal -->
+        <div class="tab-pane fade show active" id="ef1"><div class="row g-3">
+          <div class="col-md-3"><label class="form-label">Emp Code *</label><input type="text" id="emp_empCode" class="form-control" required></div>
+          <div class="col-md-3"><label class="form-label">First Name *</label><input type="text" id="emp_firstName" class="form-control" required></div>
+          <div class="col-md-3"><label class="form-label">Last Name</label><input type="text" id="emp_lastName" class="form-control"></div>
+          <div class="col-md-3"><label class="form-label">Father/Husband Name</label><input type="text" id="emp_fatherName" class="form-control"></div>
+          <div class="col-md-3"><label class="form-label">Mother Name</label><input type="text" id="emp_motherName" class="form-control"></div>
+          <div class="col-md-3"><label class="form-label">Date of Birth</label><input type="date" id="emp_dob" class="form-control"></div>
+          <div class="col-md-3"><label class="form-label">Gender</label>
+            <select id="emp_gender" class="form-select"><option value="">Select</option><option>Male</option><option>Female</option><option>Other</option></select></div>
+          <div class="col-md-3"><label class="form-label">Marital Status</label>
+            <select id="emp_maritalStatus" class="form-select"><option value="">Select</option><option>Single</option><option>Married</option><option>Divorced</option><option>Widowed</option></select></div>
+          <div class="col-md-3"><label class="form-label">Mobile No.</label><input type="tel" id="emp_phone" class="form-control"></div>
+          <div class="col-md-3"><label class="form-label">Alternate Phone</label><input type="tel" id="emp_alternatePhone" class="form-control"></div>
+          <div class="col-md-3"><label class="form-label">Official Email</label><input type="email" id="emp_email" class="form-control"></div>
+          <div class="col-md-3"><label class="form-label">Personal Email</label><input type="email" id="emp_personalEmail" class="form-control"></div>
+          <div class="col-md-3"><label class="form-label">PAN</label><input type="text" id="emp_pan" class="form-control" style="text-transform:uppercase"></div>
+          <div class="col-md-3"><label class="form-label">Aadhar No.</label><input type="text" id="emp_aadhar" class="form-control"></div>
+          <div class="col-md-3"><label class="form-label">Passport No.</label><input type="text" id="emp_passportNo" class="form-control"></div>
+          <div class="col-md-3"><label class="form-label">Driving License</label><input type="text" id="emp_drivingLicense" class="form-control"></div>
+        </div></div>
+        <!-- Tab 2: Employment -->
+        <div class="tab-pane fade" id="ef2"><div class="row g-3">
+          <div class="col-md-3"><label class="form-label">Joining Date *</label><input type="date" id="emp_joiningDate" class="form-control" required></div>
+          <div class="col-md-3"><label class="form-label">Confirmation Date</label><input type="date" id="emp_confirmationDate" class="form-control"></div>
+          <div class="col-md-3"><label class="form-label">Employment Type</label>
+            <select id="emp_employmentType" class="form-select"><option value="">Select</option><option>Permanent</option><option>Contract</option><option>Probation</option><option>Part-Time</option><option>Intern</option></select></div>
+          <div class="col-md-3"><label class="form-label">Grade</label><input type="text" id="emp_grade" class="form-control" placeholder="A/B/C or Senior/Junior"></div>
+          <div class="col-md-4"><label class="form-label">Designation *</label>
+            <select id="emp_designation" class="form-select"></select></div>
+          <div class="col-md-4"><label class="form-label">Department *</label>
+            <select id="emp_department" class="form-select"></select></div>
+          <div class="col-md-4"><label class="form-label">Reporting Manager</label>
+            <select id="emp_reportingManager" class="form-select"></select></div>
+          <div class="col-md-3"><label class="form-label">Insurance Type</label>
+            <select id="emp_insuranceType" class="form-select"><option value="ESI">ESI (0.75% employee)</option><option value="Medical">Medical Insurance</option><option value="None">None</option></select></div>
+          <div class="col-md-3"><label class="form-label">Medical Ins. Amount/month</label><input type="number" id="emp_medicalInsuranceAmount" class="form-control" placeholder="If Medical type"></div>
+          <div class="col-md-3"><label class="form-label">Leave Entitlement/year</label>
+            <select id="emp_leaveEntitlement" class="form-select"><option value="30">30 days</option><option value="42">42 days</option></select></div>
+          <div class="col-md-3"><label class="form-label">Status</label>
+            <select id="emp_status" class="form-select"><option value="active">Active</option><option value="inactive">Inactive</option><option value="resigned">Resigned</option></select></div>
+          <div class="col-12"><label class="form-label">Remarks</label><textarea id="emp_remarks" class="form-control" rows="2"></textarea></div>
+        </div></div>
+        <!-- Tab 3: Address & Bank -->
+        <div class="tab-pane fade" id="ef3"><div class="row g-3">
+          <div class="col-12"><div class="section-title">Present Address</div></div>
+          <div class="col-md-6"><label class="form-label">Address Line 1</label><input type="text" id="emp_presentAddr1" class="form-control"></div>
+          <div class="col-md-6"><label class="form-label">Address Line 2</label><input type="text" id="emp_presentAddr2" class="form-control"></div>
+          <div class="col-md-4"><label class="form-label">City</label><input type="text" id="emp_presentCity" class="form-control"></div>
+          <div class="col-md-4"><label class="form-label">State</label><input type="text" id="emp_presentState" class="form-control"></div>
+          <div class="col-md-4"><label class="form-label">PIN Code</label><input type="text" id="emp_presentPin" class="form-control"></div>
+          <div class="col-12"><div class="section-title">Permanent Address</div></div>
+          <div class="col-md-6"><label class="form-label">Address Line 1</label><input type="text" id="emp_permAddr1" class="form-control"></div>
+          <div class="col-md-6"><label class="form-label">Address Line 2</label><input type="text" id="emp_permAddr2" class="form-control"></div>
+          <div class="col-md-4"><label class="form-label">City</label><input type="text" id="emp_permCity" class="form-control"></div>
+          <div class="col-md-4"><label class="form-label">State</label><input type="text" id="emp_permState" class="form-control"></div>
+          <div class="col-md-4"><label class="form-label">PIN Code</label><input type="text" id="emp_permPin" class="form-control"></div>
+          <div class="col-12"><div class="section-title">Bank Details</div></div>
+          <div class="col-md-4"><label class="form-label">Bank Name</label><input type="text" id="emp_bankName" class="form-control"></div>
+          <div class="col-md-4"><label class="form-label">Account Number</label><input type="text" id="emp_bankAccount" class="form-control"></div>
+          <div class="col-md-4"><label class="form-label">IFSC Code</label><input type="text" id="emp_ifsc" class="form-control" style="text-transform:uppercase"></div>
+          <div class="col-md-4"><label class="form-label">Branch</label><input type="text" id="emp_bankBranch" class="form-control"></div>
+        </div></div>
+        <!-- Tab 4: Salary & Benefits -->
+        <div class="tab-pane fade" id="ef4"><div class="row g-3">
+          <div class="col-md-3"><label class="form-label">Basic Salary *</label><input type="number" id="emp_basic" class="form-control" required min="0"></div>
+          <div class="col-md-9"></div>
+          <div class="col-md-3">
+            <div class="form-check form-switch mb-1"><input type="checkbox" id="emp_hasHRA" class="form-check-input" role="switch"><label class="form-check-label" for="emp_hasHRA">House Rent Allowance (HRA)</label></div>
+            <input type="number" id="emp_hraAmount" class="form-control" placeholder="HRA amount/month" min="0">
+          </div>
+          <div class="col-md-3">
+            <div class="form-check form-switch mb-1"><input type="checkbox" id="emp_hasFoodAllowance" class="form-check-input" role="switch"><label class="form-check-label" for="emp_hasFoodAllowance">Food Allowance</label></div>
+            <input type="number" id="emp_foodAmount" class="form-control" placeholder="Food allowance/month" min="0">
+          </div>
+          <div class="col-md-3">
+            <div class="form-check form-switch mb-1"><input type="checkbox" id="emp_hasPhoneBillAllowance" class="form-check-input" role="switch"><label class="form-check-label" for="emp_hasPhoneBillAllowance">Phone Bill Allowance</label></div>
+            <input type="number" id="emp_phoneBillAmount" class="form-control" placeholder="Phone bill/month" min="0">
+          </div>
+          <div class="col-md-3">
+            <div class="form-check form-switch mb-1"><input type="checkbox" id="emp_hasMobilePhoneAllowance" class="form-check-input" role="switch"><label class="form-check-label" for="emp_hasMobilePhoneAllowance">Mobile Phone Allowance</label></div>
+            <input type="number" id="emp_mobilePhoneAmount" class="form-control" placeholder="Mobile allowance/month" min="0">
+          </div>
+          <div class="col-md-3"><label class="form-label">Other Allowance/month</label><input type="number" id="emp_otherAllowance" class="form-control" min="0"></div>
+          <div class="col-12"><div class="section-title">Bonus &amp; LTA</div></div>
+          <div class="col-md-4">
+            <div class="form-check form-switch mb-1"><input type="checkbox" id="emp_hasBonus" class="form-check-input" role="switch"><label class="form-check-label" for="emp_hasBonus">Eligible for Bonus</label></div>
+            <div class="d-flex gap-2">
+              <select id="emp_bonusType" class="form-select form-select-sm" style="width:120px"><option value="fixed">Fixed Amount</option><option value="percentage">% of Basic</option></select>
+              <input type="number" id="emp_bonusValue" class="form-control form-control-sm" placeholder="Amount / %">
+            </div>
+          </div>
+          <div class="col-md-4">
+            <div class="form-check form-switch mb-1"><input type="checkbox" id="emp_hasLTA" class="form-check-input" role="switch"><label class="form-check-label" for="emp_hasLTA">Eligible for LTA</label></div>
+            <input type="number" id="emp_ltaAmount" class="form-control" placeholder="LTA amount/year">
+          </div>
+          <div class="col-12"><div class="section-title">Deductions</div></div>
+          <div class="col-md-4"><label class="form-label">PF Rate on Basic</label>
+            <select id="emp_pfRate" class="form-select"><option value="12">12% of Basic (Standard)</option><option value="25">25% of Basic</option></select>
+          </div>
+        </div></div>
+      </div>
+    </form></div>
+    <div class="modal-footer"><button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button><button type="button" class="btn btn-primary" onclick="EMP.save()"><i class="fas fa-save me-1"></i>Save Employee</button></div>
+  </div></div>
+</div>
+
+<!-- Employee View Modal -->
+<div class="modal fade" id="empViewModal" tabindex="-1">
+  <div class="modal-dialog modal-xl"><div class="modal-content">
+    <div class="modal-header"><h5 class="modal-title">Employee Details</h5><button type="button" class="btn-close" data-bs-dismiss="modal"></button></div>
+    <div class="modal-body" id="empViewContent"></div>
+  </div></div>
+</div>
+
+<!-- Attendance Entry Modal -->
+<div class="modal fade" id="attEntryModal" tabindex="-1">
+  <div class="modal-dialog modal-lg"><div class="modal-content">
+    <div class="modal-header"><h5 class="modal-title">Attendance Entry — <span id="attEntryEmpName"></span> | <span id="attEntryDate"></span></h5><button type="button" class="btn-close" data-bs-dismiss="modal"></button></div>
+    <div class="modal-body">
+      <input type="hidden" id="att_id"><input type="hidden" id="att_empId"><input type="hidden" id="att_date">
+      <div class="row g-3">
+        <div class="col-md-6">
+          <div class="card border-success p-3">
+            <div class="section-title text-success">Punch In</div>
+            <div class="row g-2">
+              <div class="col-6"><label class="form-label">In Time</label><input type="time" id="att_inTime" class="form-control"></div>
+              <div class="col-6"><label class="form-label">Method</label>
+                <select id="att_inMethod" class="form-select"><option value="manual">Manual</option><option value="punch">Punch Machine</option><option value="phone">Phone (GPS)</option></select></div>
+              <div class="col-12">
+                <button type="button" id="att_inLocBtn" class="btn btn-outline-success btn-sm w-100" onclick="ATT.captureLocation('in')"><i class="fas fa-map-marker-alt me-1"></i> Get Location (Phone)</button>
+              </div>
+              <div class="col-6"><label class="form-label">Latitude</label><input type="text" id="att_inLat" class="form-control form-control-sm" readonly></div>
+              <div class="col-6"><label class="form-label">Longitude</label><input type="text" id="att_inLng" class="form-control form-control-sm" readonly></div>
+              <div class="col-12"><label class="form-label">Location Address</label><input type="text" id="att_inAddress" class="form-control form-control-sm" placeholder="Auto-filled or enter manually"></div>
+            </div>
+          </div>
+        </div>
+        <div class="col-md-6">
+          <div class="card border-danger p-3">
+            <div class="section-title text-danger">Punch Out</div>
+            <div class="row g-2">
+              <div class="col-6"><label class="form-label">Out Time</label><input type="time" id="att_outTime" class="form-control"></div>
+              <div class="col-6"><label class="form-label">Method</label>
+                <select id="att_outMethod" class="form-select"><option value="manual">Manual</option><option value="punch">Punch Machine</option><option value="phone">Phone (GPS)</option></select></div>
+              <div class="col-12">
+                <button type="button" id="att_outLocBtn" class="btn btn-outline-danger btn-sm w-100" onclick="ATT.captureLocation('out')"><i class="fas fa-map-marker-alt me-1"></i> Get Location (Phone)</button>
+              </div>
+              <div class="col-6"><label class="form-label">Latitude</label><input type="text" id="att_outLat" class="form-control form-control-sm" readonly></div>
+              <div class="col-6"><label class="form-label">Longitude</label><input type="text" id="att_outLng" class="form-control form-control-sm" readonly></div>
+              <div class="col-12"><label class="form-label">Location Address</label><input type="text" id="att_outAddress" class="form-control form-control-sm" placeholder="Auto-filled or enter manually"></div>
+            </div>
+          </div>
+        </div>
+        <div class="col-md-4"><label class="form-label">Status</label>
+          <select id="att_status" class="form-select"><option value="present">Present</option><option value="absent">Absent</option><option value="half-day">Half Day</option><option value="on-leave">On Leave</option></select></div>
+        <div class="col-md-8"><label class="form-label">Remarks</label><input type="text" id="att_remarks" class="form-control"></div>
+      </div>
+    </div>
+    <div class="modal-footer"><button class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button><button class="btn btn-primary" onclick="ATT.saveEntry()"><i class="fas fa-save me-1"></i>Save</button></div>
+  </div></div>
+</div>
+
+<!-- Self-Service Attendance Modal -->
+<div class="modal fade" id="selfAttModal" tabindex="-1">
+  <div class="modal-dialog"><div class="modal-content">
+    <div class="modal-header"><h5 class="modal-title"><i class="fas fa-fingerprint me-2"></i>Employee Punch In / Out</h5><button type="button" class="btn-close" data-bs-dismiss="modal"></button></div>
+    <div class="modal-body">
+      <div class="d-flex gap-2 mb-3">
+        <input type="text" id="selfAttEmpSearch" class="form-control" placeholder="Search employee by code or name...">
+        <button class="btn btn-primary" onclick="ATT.searchEmpForSelf()"><i class="fas fa-search"></i></button>
+      </div>
+      <div id="selfAttEmpList" class="list-group mb-3"></div>
+      <div id="selfAttPanel" style="display:none">
+        <div class="text-center mb-3">
+          <h6 id="selfAttEmpName"></h6>
+          <div class="text-muted" id="selfAttDate"></div>
+        </div>
+        <div class="row g-3">
+          <div class="col-6">
+            <div class="card text-center p-3 border-success">
+              <div class="text-success fw-600 mb-2"><i class="fas fa-sign-in-alt me-1"></i>Punch In</div>
+              <div id="selfAttInInfo" class="mb-2 fs-12"></div>
+              <button id="btnSelfPunchIn" class="btn btn-success btn-sm" onclick="ATT.selfPunch('in')"><i class="fas fa-fingerprint me-1"></i>Punch In</button>
+            </div>
+          </div>
+          <div class="col-6">
+            <div class="card text-center p-3 border-danger">
+              <div class="text-danger fw-600 mb-2"><i class="fas fa-sign-out-alt me-1"></i>Punch Out</div>
+              <div id="selfAttOutInfo" class="mb-2 fs-12"></div>
+              <button id="btnSelfPunchOut" class="btn btn-danger btn-sm" onclick="ATT.selfPunch('out')" disabled><i class="fas fa-fingerprint me-1"></i>Punch Out</button>
+            </div>
+          </div>
+        </div>
+        <div class="alert alert-info mt-3 fs-12"><i class="fas fa-info-circle me-1"></i>Your GPS location will be recorded automatically.</div>
+      </div>
+    </div>
+  </div></div>
+</div>
+
+<!-- Asset Form Modal -->
+<div class="modal fade" id="assetFormModal" tabindex="-1">
+  <div class="modal-dialog modal-lg"><div class="modal-content">
+    <div class="modal-header"><h5 class="modal-title" id="assetFormTitle">Add Asset</h5><button type="button" class="btn-close" data-bs-dismiss="modal"></button></div>
+    <div class="modal-body"><form id="assetForm"><input type="hidden" id="asset_id">
+      <div class="row g-3">
+        <div class="col-md-3"><label class="form-label">Asset Code</label><input type="text" id="asset_assetCode" class="form-control"></div>
+        <div class="col-md-5"><label class="form-label">Asset Name *</label><input type="text" id="asset_assetName" class="form-control" required></div>
+        <div class="col-md-4"><label class="form-label">Category</label>
+          <select id="asset_category" class="form-select">
+            <option value="">Select</option>
+            <option>Laptop</option><option>Desktop</option><option>Mobile Phone</option><option>Vehicle</option>
+            <option>Furniture</option><option>Office Equipment</option><option>Tools</option><option>Other</option>
+          </select></div>
+        <div class="col-md-3"><label class="form-label">Brand</label><input type="text" id="asset_brand" class="form-control"></div>
+        <div class="col-md-3"><label class="form-label">Model</label><input type="text" id="asset_model" class="form-control"></div>
+        <div class="col-md-3"><label class="form-label">Serial Number</label><input type="text" id="asset_serialNumber" class="form-control"></div>
+        <div class="col-md-3"><label class="form-label">Status</label>
+          <select id="asset_status" class="form-select"><option value="available">Available</option><option value="assigned">Assigned</option><option value="under-repair">Under Repair</option><option value="disposed">Disposed</option></select></div>
+        <div class="col-md-4"><label class="form-label">Purchase Date</label><input type="date" id="asset_purchaseDate" class="form-control"></div>
+        <div class="col-md-4"><label class="form-label">Purchase Value</label><input type="number" id="asset_purchaseValue" class="form-control" min="0"></div>
+        <div class="col-md-4"><label class="form-label">Current Value</label><input type="number" id="asset_currentValue" class="form-control" min="0"></div>
+        <div class="col-12"><label class="form-label">Description</label><textarea id="asset_description" class="form-control" rows="2"></textarea></div>
+      </div>
+    </form></div>
+    <div class="modal-footer"><button class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button><button class="btn btn-primary" onclick="ASSETS.save()"><i class="fas fa-save me-1"></i>Save Asset</button></div>
+  </div></div>
+</div>
+
+<!-- Asset Assign/Return Modal -->
+<div class="modal fade" id="assetAssignModal" tabindex="-1">
+  <div class="modal-dialog"><div class="modal-content">
+    <div class="modal-header"><h5 class="modal-title" id="assetAssignTitle">Assign Asset</h5><button type="button" class="btn-close" data-bs-dismiss="modal"></button></div>
+    <div class="modal-body"><form id="assetAssignForm">
+      <input type="hidden" id="asgn_id"><input type="hidden" id="assetAssignMode">
+      <div class="mb-3"><label class="form-label">Employee</label><select id="asgn_empId" class="form-select"></select></div>
+      <div class="mb-3"><label class="form-label">Asset</label><select id="asgn_assetId" class="form-select"></select></div>
+      <div id="assetAssignFields">
+        <div class="mb-3"><label class="form-label">Assigned Date</label><input type="date" id="asgn_assignedDate" class="form-control"></div>
+        <div class="mb-3"><label class="form-label">Assigned By</label><input type="text" id="asgn_assignedBy" class="form-control"></div>
+        <div class="mb-3"><label class="form-label">Condition</label>
+          <select id="asgn_conditionOnAssign" class="form-select"><option value="good">Good</option><option value="fair">Fair</option><option value="damaged">Damaged</option></select></div>
+        <div class="mb-3"><label class="form-label">Remarks</label><input type="text" id="asgn_remarks" class="form-control"></div>
+      </div>
+      <div id="assetReturnFields" style="display:none">
+        <div class="mb-3"><label class="form-label">Return Date</label><input type="date" id="asgn_returnDate" class="form-control"></div>
+        <div class="mb-3"><label class="form-label">Condition on Return</label>
+          <select id="asgn_conditionOnReturn" class="form-select"><option value="good">Good</option><option value="fair">Fair</option><option value="damaged">Damaged</option></select></div>
+        <div class="mb-3"><label class="form-label">Return Remarks</label><input type="text" id="asgn_returnRemarks" class="form-control"></div>
+      </div>
+    </form></div>
+    <div class="modal-footer"><button class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button><button class="btn btn-primary" onclick="ASSETS.saveAssignment()"><i class="fas fa-save me-1"></i>Save</button></div>
+  </div></div>
+</div>
+
+<!-- Asset History Modal -->
+<div class="modal fade" id="assetHistoryModal" tabindex="-1">
+  <div class="modal-dialog modal-lg"><div class="modal-content">
+    <div class="modal-header"><h5 class="modal-title" id="assetHistoryTitle">Asset History</h5><button type="button" class="btn-close" data-bs-dismiss="modal"></button></div>
+    <div class="modal-body">
+      <div class="table-responsive"><table class="table table-sm">
+        <thead><tr><th>Employee</th><th>Assigned</th><th>Condition (In)</th><th>Returned</th><th>Condition (Out)</th><th>Status</th><th>Remarks</th></tr></thead>
+        <tbody id="assetHistoryBody"></tbody>
+      </table></div>
+    </div>
+  </div></div>
+</div>
+
+<!-- Leave Application Modal -->
+<div class="modal fade" id="leaveAppModal" tabindex="-1">
+  <div class="modal-dialog"><div class="modal-content">
+    <div class="modal-header"><h5 class="modal-title">Leave Application</h5><button type="button" class="btn-close" data-bs-dismiss="modal"></button></div>
+    <div class="modal-body"><form id="leaveAppForm"><input type="hidden" id="la_id">
+      <div class="mb-3"><label class="form-label">Employee *</label>
+        <select id="la_empId" class="form-select" onchange="LEAVES.updateLeaveBalance(this.value)"></select></div>
+      <div class="mb-2" id="leaveBalanceDisplay"></div>
+      <div class="mb-3"><label class="form-label">Leave Type *</label>
+        <select id="la_leaveType" class="form-select"><option value="">Select</option><option value="casual">Casual Leave</option><option value="sick">Sick Leave</option><option value="earned">Earned Leave</option><option value="lta">LTA Leave</option><option value="maternity">Maternity Leave</option><option value="paternity">Paternity Leave</option><option value="unpaid">Unpaid Leave</option></select></div>
+      <div class="row g-2 mb-3">
+        <div class="col"><label class="form-label">From Date *</label><input type="date" id="la_fromDate" class="form-control" onchange="LEAVES.calcLeaveDays()"></div>
+        <div class="col"><label class="form-label">To Date *</label><input type="date" id="la_toDate" class="form-control" onchange="LEAVES.calcLeaveDays()"></div>
+        <div class="col"><label class="form-label">Days</label><input type="number" id="la_days" class="form-control" min="0.5" step="0.5"></div>
+      </div>
+      <div class="mb-3"><label class="form-label">Reason *</label><textarea id="la_reason" class="form-control" rows="3"></textarea></div>
+      <div class="mb-3"><label class="form-label">Applied Date</label><input type="date" id="la_appliedDate" class="form-control"></div>
+    </form></div>
+    <div class="modal-footer"><button class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button><button class="btn btn-primary" onclick="LEAVES.saveApplication()"><i class="fas fa-paper-plane me-1"></i>Submit Application</button></div>
+  </div></div>
+</div>
+
+<!-- Leave Encashment Modal -->
+<div class="modal fade" id="encashModal" tabindex="-1">
+  <div class="modal-dialog"><div class="modal-content">
+    <div class="modal-header"><h5 class="modal-title">Leave Encashment</h5><button type="button" class="btn-close" data-bs-dismiss="modal"></button></div>
+    <div class="modal-body"><form id="encashForm">
+      <div class="mb-3"><label class="form-label">Employee</label><select id="enc_empId" class="form-select" onchange="LEAVES.updateEncashCalc()"></select></div>
+      <div class="mb-3"><label class="form-label">Date</label><input type="date" id="enc_date" class="form-control"></div>
+      <div class="mb-3"><label class="form-label">Leave Type</label>
+        <select id="enc_leaveType" class="form-select"><option value="earned">Earned Leave</option><option value="casual">Casual Leave</option></select></div>
+      <div class="mb-3"><label class="form-label">No. of Days</label><input type="number" id="enc_days" class="form-control" min="1" oninput="LEAVES.updateEncashCalc()"></div>
+      <div class="row g-2 mb-3">
+        <div class="col"><label class="form-label">Per Day Value (Basic/26)</label><input type="number" id="enc_perDay" class="form-control" readonly></div>
+        <div class="col"><label class="form-label">Total Amount</label><input type="number" id="enc_amount" class="form-control"></div>
+      </div>
+      <div class="mb-3"><label class="form-label">Remarks</label><input type="text" id="enc_remarks" class="form-control"></div>
+    </form></div>
+    <div class="modal-footer"><button class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button><button class="btn btn-primary" onclick="LEAVES.saveEncashment()">Save</button></div>
+  </div></div>
+</div>
+
+<!-- Bonus Modal -->
+<div class="modal fade" id="bonusModal" tabindex="-1">
+  <div class="modal-dialog"><div class="modal-content">
+    <div class="modal-header"><h5 class="modal-title">Record Bonus Payment</h5><button type="button" class="btn-close" data-bs-dismiss="modal"></button></div>
+    <div class="modal-body"><form id="bonusForm">
+      <div class="mb-3"><label class="form-label">Employee</label><select id="bon_empId" class="form-select" onchange="PAY.updateBonusCalc()"></select></div>
+      <div class="mb-3"><label class="form-label">Year</label><input type="number" id="bon_year" class="form-control" min="2020"></div>
+      <div class="mb-3"><label class="form-label">Month</label>
+        <select id="bon_month" class="form-select"><option value="">Annual</option><option value="1">January</option><option value="2">February</option><option value="3">March</option><option value="4">April</option><option value="5">May</option><option value="6">June</option><option value="7">July</option><option value="8">August</option><option value="9">September</option><option value="10">October</option><option value="11">November</option><option value="12">December</option></select></div>
+      <div class="mb-3"><label class="form-label">Date of Payment</label><input type="date" id="bon_date" class="form-control"></div>
+      <div class="mb-3"><label class="form-label">Bonus Type</label><input type="text" id="bon_type" class="form-control" placeholder="Fixed / % of Basic / Festival"></div>
+      <div class="mb-3"><label class="form-label">Amount</label><input type="number" id="bon_amount" class="form-control" min="0"></div>
+      <div class="mb-3"><label class="form-label">Remarks</label><input type="text" id="bon_remarks" class="form-control"></div>
+    </form></div>
+    <div class="modal-footer"><button class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button><button class="btn btn-primary" onclick="PAY.saveBonus()">Save</button></div>
+  </div></div>
+</div>
+
+<!-- LTA Modal -->
+<div class="modal fade" id="ltaModal" tabindex="-1">
+  <div class="modal-dialog"><div class="modal-content">
+    <div class="modal-header"><h5 class="modal-title">LTA Claim</h5><button type="button" class="btn-close" data-bs-dismiss="modal"></button></div>
+    <div class="modal-body"><form id="ltaForm">
+      <div class="mb-3"><label class="form-label">Employee</label><select id="lta_empId" class="form-select"></select></div>
+      <div class="mb-3"><label class="form-label">Year</label><input type="number" id="lta_year" class="form-control"></div>
+      <div class="mb-3"><label class="form-label">Claim Date</label><input type="date" id="lta_claimDate" class="form-control"></div>
+      <div class="row g-2 mb-3">
+        <div class="col"><label class="form-label">From (City)</label><input type="text" id="lta_from" class="form-control" placeholder="Origin city"></div>
+        <div class="col"><label class="form-label">To (City)</label><input type="text" id="lta_to" class="form-control" placeholder="Destination city"></div>
+      </div>
+      <div class="row g-2 mb-3">
+        <div class="col"><label class="form-label">Travel From Date</label><input type="date" id="lta_travelFrom" class="form-control"></div>
+        <div class="col"><label class="form-label">Travel To Date</label><input type="date" id="lta_travelTo" class="form-control"></div>
+      </div>
+      <div class="mb-3"><label class="form-label">Claim Amount</label><input type="number" id="lta_amount" class="form-control"></div>
+      <div class="mb-3"><label class="form-label">Remarks</label><input type="text" id="lta_remarks" class="form-control"></div>
+    </form></div>
+    <div class="modal-footer"><button class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button><button class="btn btn-primary" onclick="PAY.saveLTA()">Save</button></div>
+  </div></div>
+</div>
+
+<!-- Advance Requisition Modal -->
+<div class="modal fade" id="advanceModal" tabindex="-1">
+  <div class="modal-dialog"><div class="modal-content">
+    <div class="modal-header"><h5 class="modal-title">Advance Requisition</h5><button type="button" class="btn-close" data-bs-dismiss="modal"></button></div>
+    <div class="modal-body"><form id="advanceForm">
+      <div class="mb-3"><label class="form-label">Employee *</label><select id="adv_empId" class="form-select"></select></div>
+      <div class="mb-3"><label class="form-label">Amount Required *</label><input type="number" id="adv_amount" class="form-control" min="1"></div>
+      <div class="mb-3"><label class="form-label">Purpose *</label><input type="text" id="adv_purpose" class="form-control"></div>
+      <div class="mb-3"><label class="form-label">Date Required By</label><input type="date" id="adv_requiredDate" class="form-control"></div>
+      <div class="mb-3"><label class="form-label">Request Date</label><input type="date" id="adv_requestDate" class="form-control"></div>
+      <div class="mb-3"><label class="form-label">Repayment Period (months)</label><input type="number" id="adv_repaymentMonths" class="form-control" min="1" max="24" value="3"></div>
+      <div class="mb-3"><label class="form-label">Remarks</label><textarea id="adv_remarks" class="form-control" rows="2"></textarea></div>
+    </form></div>
+    <div class="modal-footer"><button class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button><button class="btn btn-primary" onclick="APPROVALS.saveAdvance()"><i class="fas fa-paper-plane me-1"></i>Submit Request</button></div>
+  </div></div>
+</div>
+
+<!-- Scripts -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/bootstrap/5.3.2/js/bootstrap.bundle.min.js"></script>
+<script src="js/db.js"></script>
+<script src="js/employees.js"></script>
+<script src="js/attendance.js"></script>
+<script src="js/assets.js"></script>
+<script src="js/leaves.js"></script>
+<script src="js/payroll.js"></script>
+<script src="js/approvals.js"></script>
+<script src="js/app.js"></script>
+<script>
+// Initialize holiday list on settings nav
+document.querySelector('[data-section="settings"]').addEventListener('click', () => {
+  setTimeout(() => APP.renderHolidays(), 100);
+});
+// Populate employee dropdowns when assets tab opens
+document.querySelector('[data-section="assets"]').addEventListener('click', () => {
+  setTimeout(() => {
+    const emps = DB.getEmployees().filter(e=>e.status==='active');
+    const sel = document.getElementById('empAssetFilter');
+    if (sel) sel.innerHTML = `<option value="">Select Employee</option>` + emps.map(e=>`<option value="${e.id}">${e.empCode} - ${e.firstName} ${e.lastName}</option>`).join('');
+  }, 100);
+});
+</script>
+</body>
+</html>

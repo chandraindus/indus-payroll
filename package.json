@@ -1,0 +1,16 @@
+{
+  "name": "indus-payroll-system",
+  "version": "2.0.0",
+  "description": "Indus Projects Pvt. Ltd. — Payroll Management System",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "dependencies": {
+    "express": "^4.18.2",
+    "mongodb": "^6.3.0"
+  },
+  "devDependencies": {
+    "localtunnel": "^2.0.2"
+  }
+}

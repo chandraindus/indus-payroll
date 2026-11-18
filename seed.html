@@ -1,0 +1,149 @@
+<!DOCTYPE html>
+<html>
+<head><meta charset="UTF-8"><title>Setting up sample employee...</title>
+<style>
+body{font-family:Arial;display:flex;align-items:center;justify-content:center;height:100vh;margin:0;background:#f0f2f5}
+.box{background:#fff;padding:30px 40px;border-radius:10px;text-align:center;box-shadow:0 4px 20px rgba(0,0,0,0.1)}
+h3{color:#1a3c5e;margin:0 0 10px}p{color:#666;margin:0 0 20px}
+.spinner{width:40px;height:40px;border:4px solid #e3e3e3;border-top-color:#2d7dd2;border-radius:50%;animation:spin 1s linear infinite;margin:0 auto 16px}
+@keyframes spin{to{transform:rotate(360deg)}}
+.log{text-align:left;font-size:12px;color:#555;max-height:200px;overflow-y:auto;border:1px solid #eee;border-radius:6px;padding:10px;margin-top:10px;background:#f8f9fa}
+</style>
+</head>
+<body>
+<div class="box">
+  <div class="spinner" id="spinner"></div>
+  <h3>Setting up sample employee...</h3>
+  <p id="status">Connecting to server...</p>
+  <div class="log" id="log"></div>
+</div>
+<script>
+function uuid(){
+  return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g,c=>{
+    const r=Math.random()*16|0;return(c==='x'?r:(r&0x3|0x8)).toString(16);
+  });
+}
+function log(msg){ document.getElementById('log').innerHTML += msg+'<br>'; }
+
+async function post(url, data){
+  const r = await fetch(url,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(data)});
+  return r.json();
+}
+
+async function run(){
+  const statusEl = document.getElementById('status');
+
+  // Check if EMP001 already exists
+  statusEl.textContent = 'Checking existing employees...';
+  log('→ GET /api/employees');
+  const existing = await fetch('/api/employees').then(r=>r.json()).catch(()=>[]);
+  if (existing.find(e=>e.empCode==='EMP001')){
+    log('✓ EMP001 already exists — nothing to do');
+    statusEl.textContent = 'Sample employee already exists. Redirecting...';
+    setTimeout(()=>window.location.href='index.html', 1500);
+    return;
+  }
+
+  const empId = uuid();
+  const emp = {
+    id: empId,
+    empCode: 'EMP001',
+    firstName: 'Sample',
+    lastName: 'Employee',
+    fatherName: '',
+    motherName: '',
+    dob: '1990-06-15',
+    gender: 'Male',
+    maritalStatus: 'Single',
+    phone: '9704592227',
+    alternatePhone: '',
+    email: 'employee@indusprojects.com',
+    personalEmail: '',
+    pan: '',
+    aadhar: '',
+    passportNo: '',
+    drivingLicense: '',
+    joiningDate: '2024-01-01',
+    confirmationDate: '2024-07-01',
+    employmentType: 'Permanent',
+    grade: 'A',
+    designation: 'Executive',
+    department: 'Operations',
+    reportingManager: '',
+    presentAddr1: 'Hyderabad',
+    presentAddr2: '',
+    presentCity: 'Hyderabad',
+    presentState: 'Telangana',
+    presentPin: '500001',
+    permAddr1: 'Hyderabad',
+    permAddr2: '',
+    permCity: 'Hyderabad',
+    permState: 'Telangana',
+    permPin: '500001',
+    bankAccount: '',
+    ifsc: '',
+    bankName: '',
+    bankBranch: '',
+    basic: 25000,
+    hasHRA: true,
+    hraAmount: 10000,
+    hasFoodAllowance: true,
+    foodAmount: 2000,
+    hasPhoneBillAllowance: true,
+    phoneBillAmount: 1000,
+    hasMobilePhoneAllowance: false,
+    mobilePhoneAmount: 0,
+    otherAllowance: 0,
+    hasBonus: true,
+    bonusType: 'fixed',
+    bonusValue: 25000,
+    hasLTA: true,
+    ltaAmount: 20000,
+    pfRate: 12,
+    insuranceType: 'ESI',
+    medicalInsuranceAmount: 0,
+    leaveEntitlement: 30,
+    status: 'active',
+    remarks: 'Sample employee for testing'
+  };
+
+  // Save employee
+  statusEl.textContent = 'Creating employee EMP001...';
+  log('→ POST /api/employees');
+  await post('/api/employees', emp);
+  log('✓ Employee created');
+
+  // Init leave balance for current year
+  const year = new Date().getFullYear();
+  const entitlement = 30;
+  const cl = Math.round(entitlement * 0.33); // 10
+  const sl = Math.round(entitlement * 0.17); // 5
+  const el = entitlement - cl - sl;          // 15
+  const bal = {
+    id: `lb_${empId}_${year}`,
+    empId: empId,
+    year,
+    casual:  { entitled: cl, used: 0, balance: cl },
+    sick:    { entitled: sl, used: 0, balance: sl },
+    earned:  { entitled: el, used: 0, balance: el }
+  };
+
+  statusEl.textContent = 'Initialising leave balance...';
+  log('→ POST /api/leaveBalances');
+  await post('/api/leaveBalances', bal);
+  log('✓ Leave balance created');
+
+  statusEl.textContent = 'Done! Redirecting to app...';
+  log('✓ All done — opening index.html');
+  document.getElementById('spinner').style.borderTopColor = '#28a745';
+  setTimeout(()=>window.location.href='index.html', 1500);
+}
+
+run().catch(err=>{
+  document.getElementById('status').textContent = 'Error: ' + err.message;
+  document.getElementById('log').innerHTML += '<span style="color:red">✗ ' + err.message + '</span>';
+  document.getElementById('spinner').style.display = 'none';
+});
+</script>
+</body>
+</html>
