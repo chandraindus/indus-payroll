@@ -151,21 +151,44 @@ const LEAVES = {
   },
 
   renderEncashmentRegister() {
+    this._renderEncash('encashYear', 'encashRegBody', 8);
+  },
+
+  renderEncashmentRegister2() {
+    this._renderEncash('encashYear2', 'encashRegBody2', 11);
+  },
+
+  _renderEncash(yearElId, tbodyId, colspan) {
     const records = DB.getLeaveEncashments();
-    const yr = document.getElementById('encashYear')?.value || new Date().getFullYear();
+    const yr = document.getElementById(yearElId)?.value || new Date().getFullYear();
     const list = records.filter(r => r.year == yr);
-    const tbody = document.getElementById('encashRegBody');
+    const tbody = document.getElementById(tbodyId);
     if (!tbody) return;
+    let totalDays=0, totalAmt=0;
     tbody.innerHTML = list.length ? list.map(r => {
       const emp = DB.getEmployee(r.empId);
+      totalDays += Number(r.days||0); totalAmt += Number(r.amount||0);
       return `<tr>
-        <td>${emp?.empCode||'-'}</td><td>${emp?`${emp.firstName} ${emp.lastName}`:'-'}</td>
+        <td>${emp?.empCode||'-'}</td>
+        <td>${emp?`${emp.firstName} ${emp.lastName}`:'-'}</td>
+        ${colspan===11?`<td>${emp?.designation||'-'}</td><td>${emp?.department||'-'}</td>`:''}
         <td>${r.encashDate?fmtDate(r.encashDate):'-'}</td>
-        <td>${r.leaveType||'-'}</td><td>${r.days}</td>
-        <td>${currFmt(r.perDayValue)}</td><td class="fw-600">${currFmt(r.amount)}</td>
+        <td>${r.leaveType||'-'}</td>
+        <td class="text-center">${r.days}</td>
+        <td class="text-end">${currFmt(r.perDayValue)}</td>
+        <td class="text-end fw-600">${currFmt(r.amount)}</td>
+        ${colspan===11?`<td>${r.remarks||'-'}</td>`:''}
         <td><span class="badge bg-${r.status==='paid'?'success':'warning'}">${r.status}</span></td>
       </tr>`;
-    }).join('') : '<tr><td colspan="8" class="text-center text-muted py-4">No encashment records</td></tr>';
+    }).join('') + `<tr class="table-dark fw-700">
+      <td colspan="${colspan===11?6:4}" class="text-end">TOTAL</td>
+      <td class="text-center">${totalDays}</td>
+      <td></td>
+      <td class="text-end">${currFmt(totalAmt)}</td>
+      ${colspan===11?'<td></td>':''}
+      <td></td>
+    </tr>`
+    : `<tr><td colspan="${colspan}" class="text-center text-muted py-4">No encashment records</td></tr>`;
   },
 
   openEncashmentForm() {

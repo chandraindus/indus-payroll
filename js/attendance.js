@@ -153,19 +153,19 @@ const ATT = {
   // Self-service phone attendance (employee punches in/out themselves)
   openSelfService() {
     document.getElementById('selfAttEmpSearch').value = '';
-    document.getElementById('selfAttEmpList').innerHTML = '';
     document.getElementById('selfAttPanel').style.display = 'none';
     new bootstrap.Modal(document.getElementById('selfAttModal')).show();
+    this.searchEmpForSelf(); // show all employees immediately
   },
 
   searchEmpForSelf() {
-    const q = document.getElementById('selfAttEmpSearch').value.trim();
-    if (!q) return;
+    const q = document.getElementById('selfAttEmpSearch').value.trim().toLowerCase();
     const emps = DB.getEmployees().filter(e => e.status==='active' &&
-      (e.empCode.toLowerCase().includes(q.toLowerCase()) || (e.firstName+' '+e.lastName).toLowerCase().includes(q.toLowerCase())));
+      (!q || e.empCode.toLowerCase().includes(q) || (e.firstName+' '+e.lastName).toLowerCase().includes(q) || e.phone.includes(q)));
     document.getElementById('selfAttEmpList').innerHTML = emps.length
-      ? emps.map(e => `<div class="list-group-item list-group-item-action cursor-pointer" onclick="ATT.selectEmpSelf('${e.id}')">
-          <strong>${e.empCode}</strong> — ${e.firstName} ${e.lastName} <small class="text-muted">${e.designation}</small>
+      ? emps.map(e => `<div class="list-group-item list-group-item-action cursor-pointer py-3" onclick="ATT.selectEmpSelf('${e.id}')">
+          <div class="fw-bold">${e.firstName} ${e.lastName}</div>
+          <small class="text-muted">${e.empCode} · ${e.designation}</small>
         </div>`).join('')
       : '<div class="list-group-item text-muted">No employee found</div>';
   },
@@ -220,20 +220,24 @@ const ATT = {
       APP.showToast(`Punch ${type==='in'?'In':'Out'} recorded at ${timeNow}`, 'success');
     };
 
-    if (navigator.geolocation) {
-      navigator.geolocation.getCurrentPosition(
-        pos => {
-          const lat = pos.coords.latitude.toFixed(6);
-          const lng = pos.coords.longitude.toFixed(6);
-          fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lng}`)
-            .then(r=>r.json()).then(d => doSave(lat, lng, d.display_name||`${lat},${lng}`, 'phone'))
-            .catch(() => doSave(lat, lng, `${lat},${lng}`, 'phone'));
-        },
-        () => { doSave('','','', 'phone'); btn.disabled=false; btn.textContent = type==='in'?'Punch In':'Punch Out'; }
-      );
-    } else {
-      doSave('','','','manual');
+    if (!navigator.geolocation) {
+      btn.disabled = false; btn.innerHTML = type==='in'?'Punch In':'Punch Out';
+      APP.showToast('GPS not supported on this device.', 'danger'); return;
     }
+    navigator.geolocation.getCurrentPosition(
+      pos => {
+        const lat = pos.coords.latitude.toFixed(6);
+        const lng = pos.coords.longitude.toFixed(6);
+        fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lng}`)
+          .then(r=>r.json()).then(d => doSave(lat, lng, d.display_name||`${lat},${lng}`, 'phone'))
+          .catch(() => doSave(lat, lng, `${lat},${lng}`, 'phone'));
+      },
+      () => {
+        btn.disabled = false; btn.innerHTML = type==='in'?'Punch In':'Punch Out';
+        APP.showToast('Location access denied. Please allow location to punch attendance.', 'danger');
+      },
+      { enableHighAccuracy: true, timeout: 15000 }
+    );
   },
 
   exportMonthly() {
@@ -284,5 +288,82 @@ const ATT = {
         <td><span class="badge bg-${rec?.status==='present'?'success':rec?.status==='absent'?'danger':rec?.status==='half-day'?'warning':'info'}">${rec?.status||'absent'}</span></td>
       </tr>`;
     }).join('');
+  },
+
+  // ── Timing Register (Registers section) ──────────────────────
+  renderTimingRegister() {
+    const mo = Number(document.getElementById('timRegMonth')?.value || new Date().getMonth()+1);
+    const yr = Number(document.getElementById('timRegYear')?.value  || new Date().getFullYear());
+    const empFilter = document.getElementById('timRegEmp')?.value || '';
+    document.getElementById('timRegLabel').textContent = `${monthName(mo)} ${yr}`;
+
+    const emps = DB.getEmployees().filter(e => e.status==='active' && (!empFilter || e.id===empFilter));
+    const days = daysInMonth(yr, mo);
+    const rows = [];
+
+    for (const emp of emps) {
+      for (let d = 1; d <= days; d++) {
+        const dt = `${yr}-${fmt2(mo)}-${fmt2(d)}`;
+        const dow = new Date(dt).getDay();
+        if (dow === 0) continue; // skip Sundays
+        const rec = DB.getAttByEmpDate(emp.id, dt);
+        const pi = rec?.punchIn || {}, po = rec?.punchOut || {};
+        const hours = this._calcHours(pi.time, po.time);
+        const status = rec?.status || '-';
+        const mapLink = (lat, lng) => lat && lng
+          ? `<a href="https://maps.google.com/?q=${lat},${lng}" target="_blank" class="btn btn-xs btn-outline-primary py-0 px-1 fs-11" title="Open in Google Maps"><i class="fas fa-map"></i></a>`
+          : '';
+        rows.push(`<tr>
+          <td class="text-muted fs-12">${fmtDate(dt)}</td>
+          <td class="fw-500">${emp.empCode}</td>
+          <td>${emp.firstName} ${emp.lastName}</td>
+          <td class="text-muted fs-12">${emp.designation||'-'}</td>
+          <td class="text-center">${pi.time ? `<span class="fw-600 text-success">${pi.time}</span>` : '<span class="text-muted">-</span>'}</td>
+          <td class="fs-11">${pi.address ? pi.address.slice(0,60)+(pi.address.length>60?'…':'') : (pi.lat ? `${pi.lat}, ${pi.lng}` : '-')} ${mapLink(pi.lat, pi.lng)}</td>
+          <td class="text-center">${po.time ? `<span class="fw-600 text-primary">${po.time}</span>` : '<span class="text-muted">-</span>'}</td>
+          <td class="fs-11">${po.address ? po.address.slice(0,60)+(po.address.length>60?'…':'') : (po.lat ? `${po.lat}, ${po.lng}` : '-')} ${mapLink(po.lat, po.lng)}</td>
+          <td class="text-center fw-600">${hours || '-'}</td>
+          <td class="text-center"><span class="badge bg-${status==='present'?'success':status==='absent'?'danger':status==='half-day'?'warning':status==='on-leave'?'info':'secondary'}">${status==='on-leave'?'Leave':status==='half-day'?'Half':status!=='-'?status.charAt(0).toUpperCase()+status.slice(1):'-'}</span></td>
+        </tr>`);
+      }
+    }
+
+    const tbody = document.getElementById('timRegBody');
+    if (tbody) tbody.innerHTML = rows.length ? rows.join('') : '<tr><td colspan="10" class="text-center text-muted py-4">No punch data for this period</td></tr>';
+  },
+
+  _calcHours(inTime, outTime) {
+    if (!inTime || !outTime) return '';
+    const [ih, im] = inTime.split(':').map(Number);
+    const [oh, om] = outTime.split(':').map(Number);
+    let mins = (oh * 60 + om) - (ih * 60 + im);
+    if (mins <= 0) return '';
+    return `${Math.floor(mins/60)}h ${mins%60}m`;
+  },
+
+  exportTimingRegister() {
+    const mo = Number(document.getElementById('timRegMonth')?.value || new Date().getMonth()+1);
+    const yr = Number(document.getElementById('timRegYear')?.value  || new Date().getFullYear());
+    const empFilter = document.getElementById('timRegEmp')?.value || '';
+    const emps = DB.getEmployees().filter(e => e.status==='active' && (!empFilter || e.id===empFilter));
+    const days = daysInMonth(yr, mo);
+    let csv = `Timing Register — ${monthName(mo)} ${yr}\n`;
+    csv += 'Date,Emp Code,Name,Designation,Punch In,In Location,In Lat,In Lng,Punch Out,Out Location,Out Lat,Out Lng,Hours Worked,Status\n';
+    for (const emp of emps) {
+      for (let d = 1; d <= days; d++) {
+        const dt = `${yr}-${fmt2(mo)}-${fmt2(d)}`;
+        if (new Date(dt).getDay() === 0) continue;
+        const rec = DB.getAttByEmpDate(emp.id, dt);
+        const pi = rec?.punchIn||{}, po = rec?.punchOut||{};
+        const hours = this._calcHours(pi.time, po.time);
+        csv += `${fmtDate(dt)},${emp.empCode},"${emp.firstName} ${emp.lastName}",${emp.designation||''},`;
+        csv += `${pi.time||''},${pi.address||''},${pi.lat||''},${pi.lng||''},`;
+        csv += `${po.time||''},${po.address||''},${po.lat||''},${po.lng||''},`;
+        csv += `${hours},${rec?.status||''}\n`;
+      }
+    }
+    const blob = new Blob(['﻿'+csv], {type:'text/csv;charset=utf-8'});
+    const a = document.createElement('a'); a.href=URL.createObjectURL(blob);
+    a.download = `TimingRegister_${yr}_${fmt2(mo)}.csv`; a.click();
   }
 };

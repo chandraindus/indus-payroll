@@ -13,7 +13,7 @@ const DB = {
     const cols = ['employees','attendance','assets','assetAssignments',
       'leaves','leaveBalances','payrolls','advances','bonusRecords',
       'ltaRecords','leaveEncashments','holidays','approvalLevels',
-      'departments','designations'];
+      'departments','designations','salaryRevisions'];
     try {
       const results = await Promise.all(cols.map(c =>
         fetch(`/api/${c}`).then(r => r.ok ? r.json() : []).catch(() => [])
@@ -194,6 +194,12 @@ const DB = {
   getLeaveEncashments(){ return this._c.leaveEncashments || []; },
   saveLeaveEncashments(arr){ this._pushAll('leaveEncashments', arr); },
   upsertLeaveEncashment(rec){ this._push('leaveEncashments', rec); },
+
+  // ── Salary Revisions ─────────────────────────────────────
+  getSalaryRevisions()      { return this._c.salaryRevisions || []; },
+  saveSalaryRevisions(arr)  { this._pushAll('salaryRevisions', arr); },
+  upsertSalaryRevision(r)   { this._push('salaryRevisions', r); },
+  getSalaryRevsByEmp(empId) { return this.getSalaryRevisions().filter(r => r.empId === empId).sort((a,b) => b.effectiveDate > a.effectiveDate ? 1 : -1); },
 
   // ── Departments & Designations ────────────────────────────
   getDepartments() {

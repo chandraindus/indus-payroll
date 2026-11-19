@@ -27,6 +27,8 @@ const APP = {
     const encYr = document.getElementById('encashYear'); if (encYr) encYr.value = now.getFullYear();
     const bonYr = document.getElementById('bonusYear'); if (bonYr) bonYr.value = now.getFullYear();
     const ltaYr = document.getElementById('ltaYear'); if (ltaYr) ltaYr.value = now.getFullYear();
+    const timMo = document.getElementById('timRegMonth'); if (timMo) timMo.value = now.getMonth()+1;
+    const timYr = document.getElementById('timRegYear'); if (timYr) timYr.value = now.getFullYear();
     // Settings
     const cn = document.getElementById('setting_companyName'); if (cn) cn.value = DB.getSetting('companyName','Indus Projects Pvt. Ltd.');
     const ca = document.getElementById('setting_companyAddress'); if (ca) ca.value = DB.getSetting('companyAddress','');
@@ -59,7 +61,7 @@ const APP = {
     else if (section==='assets') ASSETS.render();
     else if (section==='leaves') { LEAVES.render(); LEAVES.renderBalanceRegister(); }
     else if (section==='payroll') PAY.renderProcessing();
-    else if (section==='registers') { PAY.renderBonusRegister(); PAY.renderLTARegister(); LEAVES.renderEncashmentRegister(); }
+    else if (section==='registers') { PAY.renderSalaryRegister(); PAY.renderBonusRegister(); PAY.renderLTARegister(); LEAVES.renderEncashmentRegister(); LEAVES.renderEncashmentRegister2(); }
     else if (section==='advances') { APPROVALS.renderAdvanceRegister(); }
     else if (section==='approvals') { APPROVALS.renderPending(); APPROVALS.renderApprovalLevels(); }
     else if (section==='dashboard') this.renderDashboard();
@@ -118,6 +120,10 @@ const APP = {
       if (el) el.innerHTML = `<option value="">Select Employee</option>` +
         emps.map(e=>`<option value="${e.id}">${e.empCode} - ${e.firstName} ${e.lastName}</option>`).join('');
     });
+    // Timing register employee filter
+    const timEl = document.getElementById('timRegEmp');
+    if (timEl) timEl.innerHTML = `<option value="">All Employees</option>` +
+      emps.map(e=>`<option value="${e.id}">${e.empCode} - ${e.firstName} ${e.lastName}</option>`).join('');
   },
 
   showToast(msg, type = 'success') {

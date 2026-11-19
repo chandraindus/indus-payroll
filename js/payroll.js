@@ -6,10 +6,15 @@ const PAY = {
 
   calcPayroll(emp, yr, mo) {
     const days = daysInMonth(yr, mo);
+    // For the current month, only count days up to today (don't count future days as absent)
+    const todayD = new Date();
+    const isCurrentMonth = (yr === todayD.getFullYear() && mo === todayD.getMonth() + 1);
+    const lastDay = isCurrentMonth ? Math.min(days, todayD.getDate()) : days;
+
     const att = DB.getAttByMonth(emp.id, yr, mo);
     // Count working days (exclude Sundays & holidays)
     let workingDays = 0, presentDays = 0, leaveDays = 0, absentDays = 0;
-    for (let d = 1; d <= days; d++) {
+    for (let d = 1; d <= lastDay; d++) {
       const dt = `${yr}-${fmt2(mo)}-${fmt2(d)}`;
       const dow = new Date(dt).getDay();
       if (dow === 0 || DB.isHoliday(dt)) continue;
@@ -28,13 +33,19 @@ const PAY = {
     const food  = emp.hasFoodAllowance ? Number(emp.foodAmount||0) * factor : 0;
     const phone = emp.hasPhoneBillAllowance ? Number(emp.phoneBillAmount||0) : 0; // flat
     const mobile= emp.hasMobilePhoneAllowance ? Number(emp.mobilePhoneAmount||0) : 0;
+    const conveyance = emp.hasConveyance ? Number(emp.conveyanceAmount||1600) : 0; // flat
     const other = Number(emp.otherAllowance||0) * factor;
-    const grossPay = basic + hra + food + phone + mobile + other;
+    const grossPay = basic + hra + food + phone + mobile + conveyance + other;
 
-    const pf = Number(emp.basic||0) * factor * (Number(emp.pfRate||12)/100);
+    // PF capped at ₹3,000 (wage ceiling ₹25,000)
+    const pf = Math.min(Number(emp.basic||0) * factor * (Number(emp.pfRate||12)/100), 3000);
     let esi = 0, medIns = 0;
     if (emp.insuranceType === 'ESI') esi = grossPay * 0.0075;
     else if (emp.insuranceType === 'Medical') medIns = Number(emp.medicalInsuranceAmount||0);
+    // Professional Tax: ₹200 if gross > ₹20,000; ₹150 if ₹15,001–₹20,000; else ₹0
+    const pt = grossPay > 20000 ? 200 : grossPay > 15000 ? 150 : 0;
+    // TDS / Income Tax
+    const tds = Number(emp.tdsAmount||0);
 
     // Advance recovery
     const advances = DB.getAdvancesByEmp(emp.id).filter(a => a.status==='approved');
@@ -47,13 +58,13 @@ const PAY = {
       }
     });
 
-    const totalDeductions = pf + esi + medIns + advRecovery;
+    const totalDeductions = pf + esi + medIns + pt + tds + advRecovery;
     const netPay = grossPay - totalDeductions;
 
     return {
       workingDays, presentDays, leaveDays, absentDays,
-      earnings: { basic, hra, food, phoneBill: phone, mobilePhone: mobile, other, grossPay },
-      deductions: { pf, esi, medicalInsurance: medIns, advance: advRecovery, totalDeductions },
+      earnings: { basic, hra, food, phoneBill: phone, mobilePhone: mobile, conveyance, other, grossPay },
+      deductions: { pf, esi, medicalInsurance: medIns, pt, tds, advance: advRecovery, totalDeductions },
       netPay: Math.max(0, netPay),
       factor
     };
@@ -82,7 +93,7 @@ const PAY = {
         <td>
           <div class="d-flex gap-1">
             <button class="btn btn-sm btn-outline-primary" onclick="PAY.processOne('${emp.id}',${mo},${yr})" title="Process"><i class="fas fa-cog"></i></button>
-            ${existing?`<button class="btn btn-sm btn-outline-success" onclick="PAY.printSlip('${existing.id}')" title="Payslip"><i class="fas fa-file-invoice"></i></button>`:''}
+            <button class="btn btn-sm btn-outline-success" onclick="PAY.generateSlip('${emp.id}',${mo},${yr})" title="Payslip"><i class="fas fa-file-invoice"></i></button>
           </div>
         </td>
       </tr>`;
@@ -133,66 +144,146 @@ const PAY = {
     APP.showToast(`${all.length} payrolls marked as paid`, 'success');
   },
 
+  // Generate payslip for any employee + month (uses saved payroll if exists, else live calc)
+  generateSlip(empId, mo, yr) {
+    const emp = DB.getEmployee(empId); if (!emp) return;
+    const saved = DB.getPayroll(empId, mo, yr);
+    const calc  = saved || this.calcPayroll(emp, yr, mo);
+    const e = calc.earnings, d = calc.deductions;
+    const co   = DB.getSetting('companyName', 'Indus Projects Pvt. Ltd.');
+    const addr = DB.getSetting('companyAddress', '');
+    const phone= DB.getSetting('companyPhone', '');
+
+    const row = (label, val) => val > 0 ? `<tr><td>${label}</td><td class="amt">₹ ${numFmt(val)}</td></tr>` : '';
+    const drow = (label, val) => val > 0 ? `<tr><td>${label}</td><td class="amt ded">₹ ${numFmt(val)}</td></tr>` : '';
+
+    const html = `<!DOCTYPE html>
+<html><head><meta charset="UTF-8"><title>Pay Slip — ${emp.empCode} — ${monthName(mo)} ${yr}</title>
+<style>
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{font-family:'Arial',sans-serif;font-size:11.5px;color:#222;background:#fff;padding:24px;max-width:820px;margin:auto}
+  .header{background:#1a3c5e;color:#fff;padding:14px 20px;border-radius:6px 6px 0 0;display:flex;justify-content:space-between;align-items:center}
+  .header h1{font-size:18px;font-weight:700;margin:0}.header .sub{font-size:11px;opacity:.85;margin-top:3px}
+  .slip-title{background:#2d7dd2;color:#fff;text-align:center;padding:7px;font-size:13px;font-weight:700;letter-spacing:1px}
+  .emp-block{display:grid;grid-template-columns:1fr 1fr 1fr;gap:0;border:1px solid #d0d7e3;border-top:none}
+  .emp-cell{padding:6px 10px;border-right:1px solid #d0d7e3;border-bottom:1px solid #d0d7e3}
+  .emp-cell:last-child{border-right:none}.emp-cell .lbl{font-size:10px;color:#666;text-transform:uppercase;letter-spacing:.4px}
+  .emp-cell .val{font-weight:600;font-size:12px;margin-top:1px}
+  .pay-section{display:grid;grid-template-columns:1fr 1fr;gap:0;margin-top:12px;border:1px solid #d0d7e3;border-radius:4px;overflow:hidden}
+  .col-head{background:#1a3c5e;color:#fff;font-weight:700;padding:7px 10px;font-size:12px}
+  table.pay{width:100%;border-collapse:collapse}
+  table.pay td{padding:5px 10px;border-bottom:1px solid #eef0f5}
+  table.pay tr:last-child td{border-bottom:none}
+  table.pay .amt{text-align:right;font-variant-numeric:tabular-nums}
+  table.pay .ded{color:#c0392b}
+  .total-row td{background:#e8f0fe;font-weight:700;padding:7px 10px}
+  .net-bar{background:#1a3c5e;color:#fff;border-radius:0 0 4px 4px;padding:10px 16px;display:flex;justify-content:space-between;align-items:center;margin-top:0}
+  .net-bar .words{font-size:11px;opacity:.9}.net-bar .amount{font-size:16px;font-weight:700}
+  .att-row{display:flex;gap:8px;margin:10px 0}
+  .att-box{flex:1;border:1px solid #d0d7e3;border-radius:4px;padding:6px 10px;text-align:center}
+  .att-box .n{font-size:18px;font-weight:700;color:#1a3c5e}.att-box .l{font-size:10px;color:#777;margin-top:2px}
+  .sig-row{display:flex;justify-content:space-between;margin-top:24px}
+  .sig-box{border-top:1px solid #999;padding-top:4px;width:160px;text-align:center;font-size:10px;color:#555}
+  .footer{font-size:9.5px;color:#aaa;margin-top:16px;border-top:1px solid #eee;padding-top:8px;text-align:center}
+  .status-badge{display:inline-block;background:${saved?.status==='paid'?'#27ae60':saved?.status==='processed'?'#2d7dd2':'#aaa'};color:#fff;border-radius:3px;padding:2px 7px;font-size:10px;font-weight:700;vertical-align:middle}
+  @media print{body{padding:0}button{display:none!important}}
+</style></head><body>
+
+<div class="header">
+  <div>
+    <h1>${co}</h1>
+    <div class="sub">${addr}${phone?'  ·  Tel: '+phone:''}</div>
+  </div>
+  <div style="text-align:right">
+    <div style="font-size:11px;opacity:.8">Pay Slip</div>
+    <div style="font-size:15px;font-weight:700">${monthName(mo)} ${yr}</div>
+    ${saved ? `<div class="status-badge">${saved.status.toUpperCase()}</div>` : '<div style="font-size:10px;opacity:.7">Draft / Preview</div>'}
+  </div>
+</div>
+<div class="slip-title">SALARY SLIP</div>
+
+<div class="emp-block">
+  <div class="emp-cell"><div class="lbl">Employee Code</div><div class="val">${emp.empCode}</div></div>
+  <div class="emp-cell"><div class="lbl">Employee Name</div><div class="val">${emp.firstName} ${emp.lastName}</div></div>
+  <div class="emp-cell"><div class="lbl">Designation</div><div class="val">${emp.designation||'-'}</div></div>
+  <div class="emp-cell"><div class="lbl">Department</div><div class="val">${emp.department||'-'}</div></div>
+  <div class="emp-cell"><div class="lbl">Date of Joining</div><div class="val">${emp.doj?fmtDate(emp.doj):'-'}</div></div>
+  <div class="emp-cell"><div class="lbl">Date of Birth</div><div class="val">${emp.dob?fmtDate(emp.dob):'-'}</div></div>
+  <div class="emp-cell"><div class="lbl">PAN</div><div class="val">${emp.pan||'-'}</div></div>
+  <div class="emp-cell"><div class="lbl">PF Number</div><div class="val">${emp.pfNumber||'-'}</div></div>
+  <div class="emp-cell"><div class="lbl">Bank Account</div><div class="val">${emp.bankAccount||'-'}</div></div>
+</div>
+
+<div class="att-row">
+  <div class="att-box"><div class="n">${calc.workingDays||0}</div><div class="l">Working Days</div></div>
+  <div class="att-box"><div class="n" style="color:#27ae60">${calc.presentDays||0}</div><div class="l">Days Present</div></div>
+  <div class="att-box"><div class="n" style="color:#e67e22">${calc.leaveDays||0}</div><div class="l">Leave Days</div></div>
+  <div class="att-box"><div class="n" style="color:#c0392b">${calc.absentDays||0}</div><div class="l">Absent Days</div></div>
+  <div class="att-box"><div class="n" style="color:#2d7dd2">${typeof calc.factor==='number'?(calc.factor*100).toFixed(0)+'%':'—'}</div><div class="l">Pay Factor</div></div>
+</div>
+
+<div class="pay-section">
+  <div>
+    <div class="col-head">Earnings</div>
+    <table class="pay">
+      ${row('Basic Salary', e.basic)}
+      ${row('House Rent Allowance (HRA)', e.hra)}
+      ${row('Food Allowance', e.food)}
+      ${row('Conveyance Allowance', e.conveyance)}
+      ${row('Phone Bill Allowance', e.phoneBill)}
+      ${row('Mobile Phone Allowance', e.mobilePhone)}
+      ${row('Other Allowance', e.other)}
+      <tr class="total-row"><td>Gross Earnings</td><td class="amt">₹ ${numFmt(e.grossPay)}</td></tr>
+    </table>
+  </div>
+  <div style="border-left:1px solid #d0d7e3">
+    <div class="col-head">Deductions</div>
+    <table class="pay">
+      ${drow(`Provident Fund (${emp.pfRate||12}%)`, d.pf)}
+      ${drow('Professional Tax (PT)', d.pt)}
+      ${drow('ESI (Employee 0.75%)', d.esi)}
+      ${drow('Medical Insurance', d.medicalInsurance)}
+      ${drow('TDS / Income Tax', d.tds)}
+      ${drow('Advance Recovery', d.advance)}
+      <tr class="total-row"><td>Total Deductions</td><td class="amt ded">₹ ${numFmt(d.totalDeductions)}</td></tr>
+    </table>
+  </div>
+</div>
+
+<div class="net-bar">
+  <div>
+    <div class="words">Net Pay (in words): <strong>${numToWords(Math.round(calc.netPay))} Rupees Only</strong></div>
+  </div>
+  <div class="amount">₹ ${numFmt(calc.netPay)}</div>
+</div>
+
+<div class="sig-row">
+  <div class="sig-box">Employee Signature</div>
+  <div class="sig-box">Prepared By</div>
+  <div class="sig-box">Authorized Signatory</div>
+</div>
+
+<div class="footer">
+  This is a computer-generated pay slip. No signature is required if generated electronically. &nbsp;|&nbsp;
+  Generated: ${new Date().toLocaleString('en-IN')}
+</div>
+
+<div style="text-align:center;margin-top:12px;display:flex;gap:8px;justify-content:center">
+  <button onclick="window.print()" style="background:#1a3c5e;color:#fff;border:none;padding:8px 20px;border-radius:4px;cursor:pointer;font-size:13px">🖨 Print / Save PDF</button>
+  <button onclick="window.close()" style="background:#ccc;color:#333;border:none;padding:8px 20px;border-radius:4px;cursor:pointer;font-size:13px">Close</button>
+</div>
+
+</body></html>`;
+
+    const w = window.open('', '_blank', 'width=870,height=1000');
+    w.document.write(html);
+    w.document.close();
+  },
+
   printSlip(payrollId) {
-    const pr = DB.getPayrolls().find(p => p.id===payrollId);
+    const pr = DB.getPayrolls().find(p => p.id === payrollId);
     if (!pr) return;
-    const emp = DB.getEmployee(pr.empId); if (!emp) return;
-    const co = DB.getSetting('companyName','Indus Projects Pvt. Ltd.');
-    const addr = DB.getSetting('companyAddress','');
-    const w = window.open('','_blank','width=850,height=950');
-    const e = pr.earnings, d = pr.deductions;
-    w.document.write(`<html><head><title>Payslip</title>
-      <style>
-        body{font-family:Arial;font-size:12px;padding:20px;max-width:800px;margin:auto}
-        h2{margin:0;color:#1a3c5e}small{color:#666}hr{border:1px solid #1a3c5e;margin:8px 0}
-        table{width:100%;border-collapse:collapse}.earn{width:50%;vertical-align:top}.ded{width:50%;vertical-align:top}
-        td,th{padding:4px 8px;border:1px solid #ddd}th{background:#f0f4f8;font-weight:600;color:#1a3c5e}
-        .total-row{background:#e8f0fe;font-weight:700}.net-row{background:#1a3c5e;color:#fff;font-weight:700;font-size:14px}
-        .label{font-weight:600}.sig{margin-top:30px;display:flex;justify-content:space-between}
-        .box{border:1px solid #ccc;padding:4px 8px;border-radius:4px;text-align:center}
-      </style></head><body>
-      <div style="text-align:center;border-bottom:2px solid #1a3c5e;padding-bottom:10px;margin-bottom:10px">
-        <h2>${co}</h2><div>${addr}</div><h3 style="color:#2d7dd2;margin:6px 0">Pay Slip — ${monthName(pr.month)} ${pr.year}</h3>
-      </div>
-      <table style="margin-bottom:10px"><tr>
-        <td><span class="label">Emp Code:</span> ${emp.empCode}</td>
-        <td><span class="label">Name:</span> ${emp.firstName} ${emp.lastName}</td>
-        <td><span class="label">Designation:</span> ${emp.designation||'-'}</td>
-      </tr><tr>
-        <td><span class="label">Department:</span> ${emp.department||'-'}</td>
-        <td><span class="label">Bank Acc:</span> ${emp.bankAccount||'-'}</td>
-        <td><span class="label">PAN:</span> ${emp.pan||'-'}</td>
-      </tr><tr>
-        <td><span class="label">Working Days:</span> ${pr.workingDays}</td>
-        <td><span class="label">Present Days:</span> ${pr.presentDays}</td>
-        <td><span class="label">Leave Days:</span> ${pr.leaveDays}</td>
-      </tr></table>
-      <table>
-        <tr>
-          <th colspan="2">Earnings</th>
-          <th colspan="2">Deductions</th>
-        </tr>
-        <tr>
-          <td>Basic Salary</td><td style="text-align:right">₹${numFmt(e.basic)}</td>
-          <td>Provident Fund (${emp.pfRate||12}%)</td><td style="text-align:right">₹${numFmt(d.pf)}</td>
-        </tr>
-        ${e.hra>0?`<tr><td>HRA</td><td style="text-align:right">₹${numFmt(e.hra)}</td>`:`<tr><td></td><td></td>`}
-        ${d.esi>0?`<td>ESI (0.75%)</td><td style="text-align:right">₹${numFmt(d.esi)}</td></tr>`:d.medicalInsurance>0?`<td>Medical Insurance</td><td style="text-align:right">₹${numFmt(d.medicalInsurance)}</td></tr>`:`<td></td><td></td></tr>`}
-        ${e.food>0?`<tr><td>Food Allowance</td><td style="text-align:right">₹${numFmt(e.food)}</td>`:`<tr><td></td><td></td>`}
-        ${d.advance>0?`<td>Advance Recovery</td><td style="text-align:right">₹${numFmt(d.advance)}</td></tr>`:d.other>0?`<td>Other Deductions</td><td style="text-align:right">₹${numFmt(d.other)}</td></tr>`:`<td></td><td></td></tr>`}
-        ${e.phoneBill>0?`<tr><td>Phone Bill Allowance</td><td style="text-align:right">₹${numFmt(e.phoneBill)}</td><td></td><td></td></tr>`:''}
-        ${e.mobilePhone>0?`<tr><td>Mobile Phone Allowance</td><td style="text-align:right">₹${numFmt(e.mobilePhone)}</td><td></td><td></td></tr>`:''}
-        ${e.other>0?`<tr><td>Other Allowance</td><td style="text-align:right">₹${numFmt(e.other)}</td><td></td><td></td></tr>`:''}
-        <tr class="total-row"><td>Gross Pay</td><td style="text-align:right">₹${numFmt(e.grossPay)}</td><td>Total Deductions</td><td style="text-align:right">₹${numFmt(d.totalDeductions)}</td></tr>
-        <tr class="net-row"><td colspan="2">Net Pay (In Words): ${numToWords(pr.netPay)} Only</td><td colspan="2" style="text-align:right">₹${numFmt(pr.netPay)}</td></tr>
-      </table>
-      <div class="sig">
-        <div class="box" style="width:200px">__________________<br>Employee Signature</div>
-        <div class="box" style="width:200px">__________________<br>Accounts / HR</div>
-      </div>
-      <p style="font-size:10px;color:#999;margin-top:20px">This is a computer generated payslip. Printed: ${new Date().toLocaleString()}</p>
-      </body></html>`);
-    w.document.close(); w.print();
+    this.generateSlip(pr.empId, pr.month, pr.year);
   },
 
   renderBonusRegister() {
@@ -319,6 +410,95 @@ const PAY = {
     const blob = new Blob([csv],{type:'text/csv'});
     const a = document.createElement('a'); a.href=URL.createObjectURL(blob);
     a.download=`Payroll_${yr}_${fmt2(mo)}.csv`; a.click();
+  },
+
+  // ── Salary Register ──────────────────────────────────────────
+  renderSalaryRegister() {
+    const mo = Number(document.getElementById('salRegMonth')?.value || new Date().getMonth()+1);
+    const yr = Number(document.getElementById('salRegYear')?.value  || new Date().getFullYear());
+    const emps = DB.getEmployees().filter(e => e.status === 'active');
+
+    document.getElementById('salRegLabel').textContent = `${monthName(mo)} ${yr}`;
+
+    let totBasic=0, totHRA=0, totFood=0, totConv=0, totPhone=0, totMobile=0, totOther=0,
+        totGross=0, totPF=0, totPT=0, totESI=0, totMed=0, totTDS=0, totAdv=0, totDed=0, totNet=0;
+
+    const rows = emps.map((emp, i) => {
+      const c = this.calcPayroll(emp, yr, mo);
+      const e = c.earnings, d = c.deductions;
+      totBasic+=e.basic; totHRA+=e.hra; totFood+=e.food; totConv+=e.conveyance;
+      totPhone+=e.phoneBill; totMobile+=e.mobilePhone; totOther+=e.other; totGross+=e.grossPay;
+      totPF+=d.pf; totPT+=d.pt; totESI+=d.esi; totMed+=d.medicalInsurance;
+      totTDS+=d.tds; totAdv+=d.advance; totDed+=d.totalDeductions; totNet+=c.netPay;
+      return `<tr>
+        <td class="sr-no">${i+1}</td>
+        <td class="sr-code">${emp.empCode}</td>
+        <td class="sr-name">${emp.firstName} ${emp.lastName}</td>
+        <td class="sr-desig">${emp.designation||'-'}</td>
+        <td class="sr-num">${c.workingDays}</td>
+        <td class="sr-num text-success">${c.presentDays}</td>
+        <td class="sr-num text-danger">${c.absentDays}</td>
+        <td class="sr-amt">${e.basic>0?currFmt(e.basic):'-'}</td>
+        <td class="sr-amt">${e.hra>0?currFmt(e.hra):'-'}</td>
+        <td class="sr-amt">${e.conveyance>0?currFmt(e.conveyance):'-'}</td>
+        <td class="sr-amt">${e.food>0?currFmt(e.food):'-'}</td>
+        <td class="sr-amt">${e.phoneBill>0?currFmt(e.phoneBill):'-'}</td>
+        <td class="sr-amt">${e.mobilePhone>0?currFmt(e.mobilePhone):'-'}</td>
+        <td class="sr-amt">${e.other>0?currFmt(e.other):'-'}</td>
+        <td class="sr-amt sr-gross">${currFmt(e.grossPay)}</td>
+        <td class="sr-amt sr-ded">${d.pf>0?currFmt(d.pf):'-'}</td>
+        <td class="sr-amt sr-ded">${d.pt>0?currFmt(d.pt):'-'}</td>
+        <td class="sr-amt sr-ded">${d.esi>0?currFmt(d.esi):'-'}</td>
+        <td class="sr-amt sr-ded">${d.medicalInsurance>0?currFmt(d.medicalInsurance):'-'}</td>
+        <td class="sr-amt sr-ded">${d.tds>0?currFmt(d.tds):'-'}</td>
+        <td class="sr-amt sr-ded">${d.advance>0?currFmt(d.advance):'-'}</td>
+        <td class="sr-amt sr-ded">${d.totalDeductions>0?currFmt(d.totalDeductions):'-'}</td>
+        <td class="sr-amt sr-net">${currFmt(c.netPay)}</td>
+        <td class="sr-proj">${emp.projectName||'-'}</td>
+      </tr>`;
+    }).join('');
+
+    const totalRow = `<tr class="sr-total">
+      <td colspan="7" class="text-end fw-700 pe-2">TOTAL</td>
+      <td class="sr-amt">${currFmt(totBasic)}</td>
+      <td class="sr-amt">${currFmt(totHRA)}</td>
+      <td class="sr-amt">${currFmt(totConv)}</td>
+      <td class="sr-amt">${currFmt(totFood)}</td>
+      <td class="sr-amt">${currFmt(totPhone)}</td>
+      <td class="sr-amt">${currFmt(totMobile)}</td>
+      <td class="sr-amt">${currFmt(totOther)}</td>
+      <td class="sr-amt sr-gross">${currFmt(totGross)}</td>
+      <td class="sr-amt sr-ded">${currFmt(totPF)}</td>
+      <td class="sr-amt sr-ded">${currFmt(totPT)}</td>
+      <td class="sr-amt sr-ded">${currFmt(totESI)}</td>
+      <td class="sr-amt sr-ded">${currFmt(totMed)}</td>
+      <td class="sr-amt sr-ded">${currFmt(totTDS)}</td>
+      <td class="sr-amt sr-ded">${currFmt(totAdv)}</td>
+      <td class="sr-amt sr-ded">${currFmt(totDed)}</td>
+      <td class="sr-amt sr-net">${currFmt(totNet)}</td>
+      <td></td>
+    </tr>`;
+
+    document.getElementById('salRegBody').innerHTML = rows + totalRow;
+  },
+
+  exportSalaryRegister() {
+    const mo = Number(document.getElementById('salRegMonth')?.value || new Date().getMonth()+1);
+    const yr = Number(document.getElementById('salRegYear')?.value  || new Date().getFullYear());
+    const emps = DB.getEmployees().filter(e => e.status==='active');
+    let csv = `Salary Register — ${monthName(mo)} ${yr} — Indus Projects Pvt. Ltd.\n`;
+    csv += 'Sr,Emp Code,Name,Designation,Working Days,Present,Absent,Basic,HRA,Conveyance,Food Allow.,Phone Bill,Mobile Phone,Other Allow.,Gross Pay,PF,PT,ESI,Med.Ins,TDS,Advance,Total Deductions,Net Pay,Project Name\n';
+    emps.forEach((emp,i) => {
+      const c = this.calcPayroll(emp, yr, mo);
+      const e = c.earnings, d = c.deductions;
+      csv += `${i+1},${emp.empCode},"${emp.firstName} ${emp.lastName}",${emp.designation||''},`;
+      csv += `${c.workingDays},${c.presentDays},${c.absentDays},`;
+      csv += `${numFmt(e.basic)},${numFmt(e.hra)},${numFmt(e.conveyance)},${numFmt(e.food)},${numFmt(e.phoneBill)},${numFmt(e.mobilePhone)},${numFmt(e.other)},${numFmt(e.grossPay)},`;
+      csv += `${numFmt(d.pf)},${numFmt(d.pt)},${numFmt(d.esi)},${numFmt(d.medicalInsurance)},${numFmt(d.tds)},${numFmt(d.advance)},${numFmt(d.totalDeductions)},${numFmt(c.netPay)},"${emp.projectName||''}"\n`;
+    });
+    const blob = new Blob(['﻿'+csv], {type:'text/csv;charset=utf-8'});
+    const a = document.createElement('a'); a.href=URL.createObjectURL(blob);
+    a.download=`SalaryRegister_${yr}_${fmt2(mo)}.csv`; a.click();
   }
 };
 

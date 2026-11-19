@@ -220,20 +220,14 @@
       </div>
     </div>
     <div class="tab-pane fade" id="assetByEmp">
-      <div class="d-flex gap-2 align-items-center mb-3">
-        <label class="form-label mb-0 fw-500">Employee:</label>
-        <select id="empAssetFilter" class="form-select form-select-sm" style="width:280px" onchange="ASSETS.renderEmpAssets()">
-          <option value="">Select Employee</option>
-        </select>
-      </div>
-      <div class="card">
-        <div class="table-responsive">
-          <table class="table table-hover mb-0">
-            <thead><tr><th>Asset Code</th><th>Name</th><th>Category</th><th>Serial No.</th><th>Assigned Date</th><th>Condition</th></tr></thead>
-            <tbody id="empAssetTableBody"><tr><td colspan="6" class="text-center text-muted py-4">Select an employee to view assets</td></tr></tbody>
-          </table>
+      <div class="d-flex justify-content-between align-items-center mb-3 flex-wrap gap-2">
+        <div class="d-flex gap-2 align-items-center">
+          <input type="text" id="empAssetSearch" class="form-control form-control-sm" placeholder="Search employee or asset..." style="width:240px" oninput="ASSETS.renderAllEmpAssets()">
+          <span id="empAssetSummary" class="text-muted fs-13"></span>
         </div>
+        <button class="btn btn-sm btn-outline-success" onclick="ASSETS.exportEmpAssets()"><i class="fas fa-file-csv me-1"></i>Export CSV</button>
       </div>
+      <div id="empAssetRegister"></div>
     </div>
   </div>
 </div>
@@ -356,11 +350,80 @@
 <!-- ━━ REGISTERS ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ -->
 <div id="sec_registers" class="section-pane">
   <ul class="nav nav-tabs mb-3">
-    <li class="nav-item"><a class="nav-link active" data-bs-toggle="tab" href="#regBonus">Bonus Register</a></li>
-    <li class="nav-item"><a class="nav-link" data-bs-toggle="tab" href="#regLTA">LTA Register</a></li>
+    <li class="nav-item"><a class="nav-link active" data-bs-toggle="tab" href="#regSalary" onclick="setTimeout(()=>PAY.renderSalaryRegister(),80)">Salary Register</a></li>
+    <li class="nav-item"><a class="nav-link" data-bs-toggle="tab" href="#regBonus" onclick="setTimeout(()=>PAY.renderBonusRegister(),80)">Bonus Register</a></li>
+    <li class="nav-item"><a class="nav-link" data-bs-toggle="tab" href="#regLTA" onclick="setTimeout(()=>PAY.renderLTARegister(),80)">LTA Register</a></li>
+    <li class="nav-item"><a class="nav-link" data-bs-toggle="tab" href="#regEncash" onclick="setTimeout(()=>LEAVES.renderEncashmentRegister2(),80)">Leave Encashment</a></li>
+    <li class="nav-item"><a class="nav-link" data-bs-toggle="tab" href="#regTiming" onclick="setTimeout(()=>ATT.renderTimingRegister(),80)"><i class="fas fa-clock me-1"></i>Timing Register</a></li>
   </ul>
   <div class="tab-content">
-    <div class="tab-pane fade show active" id="regBonus">
+
+    <!-- Salary Register -->
+    <div class="tab-pane fade show active" id="regSalary">
+      <div class="d-flex justify-content-between align-items-center mb-3 flex-wrap gap-2">
+        <div class="d-flex gap-2 align-items-center flex-wrap">
+          <label class="form-label mb-0 fw-500">Month:</label>
+          <select id="salRegMonth" class="form-select form-select-sm" style="width:130px" onchange="PAY.renderSalaryRegister()">
+            <option value="1">January</option><option value="2">February</option><option value="3">March</option>
+            <option value="4">April</option><option value="5">May</option><option value="6">June</option>
+            <option value="7">July</option><option value="8">August</option><option value="9">September</option>
+            <option value="10">October</option><option value="11">November</option><option value="12">December</option>
+          </select>
+          <select id="salRegYear" class="form-select form-select-sm" style="width:90px" onchange="PAY.renderSalaryRegister()">
+            <option value="2025">2025</option><option value="2026" selected>2026</option><option value="2027">2027</option>
+          </select>
+          <span id="salRegLabel" class="text-muted fw-500 fs-13"></span>
+        </div>
+        <button class="btn btn-sm btn-outline-success" onclick="PAY.exportSalaryRegister()"><i class="fas fa-file-csv me-1"></i>Export CSV</button>
+      </div>
+
+      <style>
+        .sal-reg-wrap{overflow-x:auto;border:1px solid #dee2e6;border-radius:6px}
+        .sal-reg{border-collapse:collapse;font-size:12px;min-width:1300px;width:100%}
+        .sal-reg th,.sal-reg td{border:1px solid #dee2e6;padding:5px 8px;white-space:nowrap}
+        .sal-reg thead tr:first-child th{background:#1a3c5e;color:#fff;text-align:center;font-size:11px;text-transform:uppercase;letter-spacing:.4px}
+        .sal-reg thead tr:last-child th{background:#e8f0fe;color:#1a3c5e;font-weight:700;font-size:11px;text-align:center}
+        .sal-reg tbody tr:nth-child(even){background:#f8f9fd}
+        .sal-reg tbody tr:hover{background:#eef3fb}
+        .sr-no,.sr-num{text-align:center}
+        .sr-amt{text-align:right;font-variant-numeric:tabular-nums}
+        .sr-gross{background:#e8f4e8!important;font-weight:700;color:#155724}
+        .sr-net{background:#e8f0fe!important;font-weight:700;color:#1a3c5e}
+        .sr-ded{color:#c0392b}
+        .sr-total td{background:#1a3c5e!important;color:#fff!important;font-weight:700}
+        .sr-total .sr-gross{background:#27ae60!important;color:#fff!important}
+        .sr-total .sr-net{background:#2d7dd2!important;color:#fff!important}
+        .sr-total .sr-ded{color:#ffb3b3!important}
+      </style>
+
+      <div class="sal-reg-wrap">
+        <table class="sal-reg">
+          <thead>
+            <tr>
+              <th rowspan="2">Sr</th>
+              <th rowspan="2">Emp Code</th>
+              <th rowspan="2">Name</th>
+              <th rowspan="2">Designation</th>
+              <th colspan="3">Attendance</th>
+              <th colspan="8">Earnings</th>
+              <th colspan="7">Deductions</th>
+              <th rowspan="2" class="sr-net">Net Pay</th>
+              <th rowspan="2">Project</th>
+            </tr>
+            <tr>
+              <th>W.Days</th><th>Present</th><th>Absent</th>
+              <th>Basic</th><th>HRA</th><th>Conv.</th><th>Food</th><th>Phone Bill</th><th>Mobile</th><th>Other</th><th class="sr-gross">Gross</th>
+              <th>PF</th><th>PT</th><th>ESI</th><th>Med.Ins</th><th>TDS</th><th>Advance</th><th>Total Ded.</th>
+            </tr>
+          </thead>
+          <tbody id="salRegBody">
+            <tr><td colspan="24" class="text-center text-muted py-4">Loading...</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <div class="tab-pane fade" id="regBonus">
       <div class="d-flex justify-content-between align-items-center mb-3">
         <div class="d-flex gap-2 align-items-center">
           <label class="form-label mb-0 fw-500">Year:</label>
@@ -394,6 +457,74 @@
         </div>
       </div>
     </div>
+
+    <!-- Leave Encashment Register -->
+    <div class="tab-pane fade" id="regEncash">
+      <div class="d-flex justify-content-between align-items-center mb-3">
+        <div class="d-flex gap-2 align-items-center">
+          <label class="form-label mb-0 fw-500">Year:</label>
+          <select id="encashYear2" class="form-select form-select-sm" style="width:100px" onchange="LEAVES.renderEncashmentRegister2()">
+            <option value="2025">2025</option><option value="2026" selected>2026</option><option value="2027">2027</option>
+          </select>
+        </div>
+        <button class="btn btn-primary btn-sm" onclick="LEAVES.openEncashmentForm()"><i class="fas fa-plus me-1"></i>Add Encashment</button>
+      </div>
+      <div class="card">
+        <div class="table-responsive">
+          <table class="table table-hover mb-0">
+            <thead><tr><th>Emp Code</th><th>Name</th><th>Designation</th><th>Department</th><th>Date</th><th>Leave Type</th><th>Days</th><th>Per Day Value</th><th>Amount</th><th>Remarks</th><th>Status</th></tr></thead>
+            <tbody id="encashRegBody2"></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <!-- Timing Register -->
+    <div class="tab-pane fade" id="regTiming">
+      <div class="d-flex justify-content-between align-items-center mb-3 flex-wrap gap-2">
+        <div class="d-flex gap-2 align-items-center flex-wrap">
+          <label class="form-label mb-0 fw-500">Month:</label>
+          <select id="timRegMonth" class="form-select form-select-sm" style="width:130px" onchange="ATT.renderTimingRegister()">
+            <option value="1">January</option><option value="2">February</option><option value="3">March</option>
+            <option value="4">April</option><option value="5">May</option><option value="6">June</option>
+            <option value="7">July</option><option value="8">August</option><option value="9">September</option>
+            <option value="10">October</option><option value="11">November</option><option value="12">December</option>
+          </select>
+          <select id="timRegYear" class="form-select form-select-sm" style="width:90px" onchange="ATT.renderTimingRegister()">
+            <option value="2025">2025</option><option value="2026" selected>2026</option><option value="2027">2027</option>
+          </select>
+          <select id="timRegEmp" class="form-select form-select-sm" style="width:200px" onchange="ATT.renderTimingRegister()">
+            <option value="">All Employees</option>
+          </select>
+          <span class="fw-600 text-primary" id="timRegLabel"></span>
+        </div>
+        <button class="btn btn-outline-success btn-sm" onclick="ATT.exportTimingRegister()"><i class="fas fa-download me-1"></i>Export CSV</button>
+      </div>
+      <div class="card">
+        <div class="table-responsive">
+          <table class="table table-hover table-sm mb-0 fs-13">
+            <thead class="table-dark">
+              <tr>
+                <th>Date</th>
+                <th>Code</th>
+                <th>Name</th>
+                <th>Designation</th>
+                <th class="text-center">Punch In</th>
+                <th style="min-width:200px">In Location</th>
+                <th class="text-center">Punch Out</th>
+                <th style="min-width:200px">Out Location</th>
+                <th class="text-center">Hours</th>
+                <th class="text-center">Status</th>
+              </tr>
+            </thead>
+            <tbody id="timRegBody">
+              <tr><td colspan="10" class="text-center text-muted py-4">Select month and click Timing Register tab</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
   </div>
 </div>
 
@@ -522,6 +653,7 @@
         <li class="nav-item"><a class="nav-link" data-bs-toggle="tab" href="#ef2">Employment</a></li>
         <li class="nav-item"><a class="nav-link" data-bs-toggle="tab" href="#ef3">Address &amp; Bank</a></li>
         <li class="nav-item"><a class="nav-link" data-bs-toggle="tab" href="#ef4">Salary &amp; Benefits</a></li>
+        <li class="nav-item"><a class="nav-link" data-bs-toggle="tab" href="#ef5"><i class="fas fa-file-alt me-1"></i>Documents</a></li>
       </ul>
       <div class="tab-content">
         <!-- Tab 1: Personal -->
@@ -549,6 +681,7 @@
         <div class="tab-pane fade" id="ef2"><div class="row g-3">
           <div class="col-md-3"><label class="form-label">Joining Date *</label><input type="date" id="emp_joiningDate" class="form-control" required></div>
           <div class="col-md-3"><label class="form-label">Confirmation Date</label><input type="date" id="emp_confirmationDate" class="form-control"></div>
+          <div class="col-md-6"><label class="form-label">Project / Site Name</label><input type="text" id="emp_projectName" class="form-control" placeholder="e.g. DRL-SDC Expansion, Head Office"></div>
           <div class="col-md-3"><label class="form-label">Employment Type</label>
             <select id="emp_employmentType" class="form-select"><option value="">Select</option><option>Permanent</option><option>Contract</option><option>Probation</option><option>Part-Time</option><option>Intern</option></select></div>
           <div class="col-md-3"><label class="form-label">Grade</label><input type="text" id="emp_grade" class="form-control" placeholder="A/B/C or Senior/Junior"></div>
@@ -608,6 +741,12 @@
             <input type="number" id="emp_mobilePhoneAmount" class="form-control" placeholder="Mobile allowance/month" min="0">
           </div>
           <div class="col-md-3"><label class="form-label">Other Allowance/month</label><input type="number" id="emp_otherAllowance" class="form-control" min="0"></div>
+          <div class="col-md-3">
+            <div class="form-check form-switch mb-1"><input type="checkbox" id="emp_hasConveyance" class="form-check-input" role="switch"><label class="form-check-label" for="emp_hasConveyance">Conveyance Allowance</label></div>
+            <input type="number" id="emp_conveyanceAmount" class="form-control" placeholder="₹1600/month" min="0">
+          </div>
+          <div class="col-12"><div class="section-title">Tax &amp; Other Deductions</div></div>
+          <div class="col-md-4"><label class="form-label">TDS / Income Tax per month</label><input type="number" id="emp_tdsAmount" class="form-control" placeholder="0" min="0"></div>
           <div class="col-12"><div class="section-title">Bonus &amp; LTA</div></div>
           <div class="col-md-4">
             <div class="form-check form-switch mb-1"><input type="checkbox" id="emp_hasBonus" class="form-check-input" role="switch"><label class="form-check-label" for="emp_hasBonus">Eligible for Bonus</label></div>
@@ -625,9 +764,72 @@
             <select id="emp_pfRate" class="form-select"><option value="12">12% of Basic (Standard)</option><option value="25">25% of Basic</option></select>
           </div>
         </div></div>
+        <!-- Tab 5: Documents -->
+        <div class="tab-pane fade" id="ef5"><div class="row g-3">
+          <div class="col-12"><div class="section-title"><i class="fas fa-camera me-1"></i>Employee Photo</div></div>
+          <div class="col-md-4">
+            <input type="file" id="emp_photoFile" class="form-control" accept="image/*" onchange="EMP.previewDoc('emp_photoFile','emp_photoPreview','photo')">
+            <div id="emp_photoPreview" class="mt-2"></div>
+          </div>
+          <div class="col-12"><div class="section-title"><i class="fas fa-file-contract me-1"></i>Appointment Letter</div></div>
+          <div class="col-md-6">
+            <small class="text-muted">PDF or image, max 5 MB</small>
+            <input type="file" id="emp_apptLetterFile" class="form-control mt-1" accept="image/*,application/pdf" onchange="EMP.previewDoc('emp_apptLetterFile','emp_apptLetterPreview','doc')">
+            <div id="emp_apptLetterPreview" class="mt-2"></div>
+          </div>
+          <div class="col-12"><div class="section-title"><i class="fas fa-certificate me-1"></i>Certificates &amp; Documents</div></div>
+          <div class="col-12" id="emp_certsContainer"></div>
+          <div class="col-12">
+            <button type="button" class="btn btn-sm btn-outline-primary" onclick="EMP.addCertRow()"><i class="fas fa-plus me-1"></i>Add Certificate / Document</button>
+          </div>
+        </div></div>
       </div>
     </form></div>
     <div class="modal-footer"><button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button><button type="button" class="btn btn-primary" onclick="EMP.save()"><i class="fas fa-save me-1"></i>Save Employee</button></div>
+  </div></div>
+</div>
+
+<!-- Salary Revision Modal -->
+<div class="modal fade" id="salRevModal" tabindex="-1">
+  <div class="modal-dialog modal-lg"><div class="modal-content">
+    <div class="modal-header"><h5 class="modal-title"><i class="fas fa-chart-line me-2 text-success"></i>Salary Revision</h5><button type="button" class="btn-close" data-bs-dismiss="modal"></button></div>
+    <div class="modal-body">
+      <form id="salRevForm">
+        <input type="hidden" id="salrev_empId">
+        <div class="p-2 bg-light rounded mb-3 fs-13" id="salrev_empInfo"></div>
+        <div class="row g-3">
+          <div class="col-md-4"><label class="form-label">Effective Date *</label><input type="date" id="salrev_effectiveDate" class="form-control"></div>
+          <div class="col-md-4"><label class="form-label">Revision Type</label>
+            <select id="salrev_type" class="form-select"><option>Annual Increment</option><option>Promotion</option><option>Merit</option><option>Restructure</option><option>Correction</option><option>Other</option></select></div>
+          <div class="col-md-4"><label class="form-label">New Grade</label><input type="text" id="salrev_grade" class="form-control" placeholder="A / Senior / L3"></div>
+          <div class="col-md-4"><label class="form-label">Previous Basic</label><input type="number" id="salrev_prevBasic" class="form-control" readonly></div>
+          <div class="col-md-4"><label class="form-label">New Basic *</label><input type="number" id="salrev_newBasic" class="form-control" oninput="EMP.calcRevision()"></div>
+          <div class="col-md-4"><label class="form-label">Increment / (Decrement)</label><input type="text" id="salrev_increment" class="form-control" readonly></div>
+          <div class="col-md-6"><label class="form-label">Performance Rating</label>
+            <select id="salrev_rating" class="form-select">
+              <option value="">Not Rated</option>
+              <option value="5">★★★★★ Outstanding (5)</option>
+              <option value="4">★★★★ Exceeds Expectations (4)</option>
+              <option value="3">★★★ Meets Expectations (3)</option>
+              <option value="2">★★ Needs Improvement (2)</option>
+              <option value="1">★ Unsatisfactory (1)</option>
+            </select></div>
+          <div class="col-md-6"><label class="form-label">Approved By</label><input type="text" id="salrev_approvedBy" class="form-control"></div>
+          <div class="col-md-6"><label class="form-label">Reason</label><input type="text" id="salrev_reason" class="form-control" placeholder="Annual review, Promotion, etc."></div>
+          <div class="col-md-6"><label class="form-label">Remarks</label><input type="text" id="salrev_remarks" class="form-control"></div>
+        </div>
+      </form>
+      <hr>
+      <h6 class="mb-2">Revision History</h6>
+      <div class="table-responsive"><table class="table table-sm table-bordered fs-12">
+        <thead class="table-dark"><tr><th>Effective Date</th><th>Prev Basic</th><th>New Basic</th><th>Increment</th><th>%</th><th>Type</th><th>Rating</th><th>Grade</th><th>Approved By</th></tr></thead>
+        <tbody id="salrev_histBody"><tr><td colspan="9" class="text-center text-muted py-2">No revisions yet</td></tr></tbody>
+      </table></div>
+    </div>
+    <div class="modal-footer">
+      <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+      <button type="button" class="btn btn-success" onclick="EMP.saveSalaryRevision()"><i class="fas fa-check me-1"></i>Save &amp; Update Salary</button>
+    </div>
   </div></div>
 </div>
 
@@ -767,12 +969,22 @@
         <div class="mb-3"><label class="form-label">Condition</label>
           <select id="asgn_conditionOnAssign" class="form-select"><option value="good">Good</option><option value="fair">Fair</option><option value="damaged">Damaged</option></select></div>
         <div class="mb-3"><label class="form-label">Remarks</label><input type="text" id="asgn_remarks" class="form-control"></div>
+        <div class="mb-3">
+          <label class="form-label"><i class="fas fa-file-upload me-1 text-primary"></i>Receiving Receipt <small class="text-muted">(photo/PDF, max 2 MB)</small></label>
+          <input type="file" id="asgn_receiptIn" class="form-control" accept="image/*,application/pdf" onchange="ASSETS.previewReceipt('asgn_receiptIn','asgn_receiptInPreview')">
+          <div id="asgn_receiptInPreview" class="mt-2"></div>
+        </div>
       </div>
       <div id="assetReturnFields" style="display:none">
         <div class="mb-3"><label class="form-label">Return Date</label><input type="date" id="asgn_returnDate" class="form-control"></div>
         <div class="mb-3"><label class="form-label">Condition on Return</label>
           <select id="asgn_conditionOnReturn" class="form-select"><option value="good">Good</option><option value="fair">Fair</option><option value="damaged">Damaged</option></select></div>
         <div class="mb-3"><label class="form-label">Return Remarks</label><input type="text" id="asgn_returnRemarks" class="form-control"></div>
+        <div class="mb-3">
+          <label class="form-label"><i class="fas fa-file-upload me-1 text-warning"></i>Return Receipt <small class="text-muted">(photo/PDF, max 2 MB)</small></label>
+          <input type="file" id="asgn_receiptOut" class="form-control" accept="image/*,application/pdf" onchange="ASSETS.previewReceipt('asgn_receiptOut','asgn_receiptOutPreview')">
+          <div id="asgn_receiptOutPreview" class="mt-2"></div>
+        </div>
       </div>
     </form></div>
     <div class="modal-footer"><button class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button><button class="btn btn-primary" onclick="ASSETS.saveAssignment()"><i class="fas fa-save me-1"></i>Save</button></div>
@@ -785,7 +997,7 @@
     <div class="modal-header"><h5 class="modal-title" id="assetHistoryTitle">Asset History</h5><button type="button" class="btn-close" data-bs-dismiss="modal"></button></div>
     <div class="modal-body">
       <div class="table-responsive"><table class="table table-sm">
-        <thead><tr><th>Employee</th><th>Assigned</th><th>Condition (In)</th><th>Returned</th><th>Condition (Out)</th><th>Status</th><th>Remarks</th></tr></thead>
+        <thead><tr><th>Employee</th><th>Assigned</th><th>Condition (In)</th><th>Receipt</th><th>Returned</th><th>Condition (Out)</th><th>Return Receipt</th><th>Status</th><th>Remarks</th></tr></thead>
         <tbody id="assetHistoryBody"></tbody>
       </table></div>
     </div>
@@ -909,12 +1121,9 @@ document.querySelector('[data-section="settings"]').addEventListener('click', ()
 });
 // Populate employee dropdowns when assets tab opens
 document.querySelector('[data-section="assets"]').addEventListener('click', () => {
-  setTimeout(() => {
-    const emps = DB.getEmployees().filter(e=>e.status==='active');
-    const sel = document.getElementById('empAssetFilter');
-    if (sel) sel.innerHTML = `<option value="">Select Employee</option>` + emps.map(e=>`<option value="${e.id}">${e.empCode} - ${e.firstName} ${e.lastName}</option>`).join('');
-  }, 100);
+  setTimeout(() => { ASSETS.render(); ASSETS.renderAllEmpAssets(); }, 100);
 });
+document.querySelector('a[href="#assetByEmp"]')?.addEventListener('shown.bs.tab', () => ASSETS.renderAllEmpAssets());
 </script>
 </body>
 </html>
