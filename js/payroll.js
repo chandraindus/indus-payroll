@@ -482,6 +482,30 @@ const PAY = {
     document.getElementById('salRegBody').innerHTML = rows + totalRow;
   },
 
+  exportSalaryExcel() {
+    const mo = Number(document.getElementById('salRegMonth')?.value || new Date().getMonth()+1);
+    const yr = Number(document.getElementById('salRegYear')?.value  || new Date().getFullYear());
+    const tableEl = document.querySelector('#regSalary table');
+    if (!tableEl) { APP.showToast('No data to export','danger'); return; }
+    exportRegisterExcel(null, `SalaryRegister_${yr}_${fmt2(mo)}`, tableEl);
+  },
+
+  exportSalaryPDF() {
+    const mo = Number(document.getElementById('salRegMonth')?.value || new Date().getMonth()+1);
+    const yr = Number(document.getElementById('salRegYear')?.value  || new Date().getFullYear());
+    const tableEl = document.querySelector('#regSalary table');
+    if (!tableEl) return;
+    exportRegisterPDF(`Salary Register — ${monthName(mo)} ${yr}`, tableEl);
+  },
+
+  exportSalaryWord() {
+    const mo = Number(document.getElementById('salRegMonth')?.value || new Date().getMonth()+1);
+    const yr = Number(document.getElementById('salRegYear')?.value  || new Date().getFullYear());
+    const tableEl = document.querySelector('#regSalary table');
+    if (!tableEl) return;
+    exportRegisterWord(`Salary Register — ${monthName(mo)} ${yr}`, tableEl, `SalaryRegister_${yr}_${fmt2(mo)}`);
+  },
+
   exportSalaryRegister() {
     const mo = Number(document.getElementById('salRegMonth')?.value || new Date().getMonth()+1);
     const yr = Number(document.getElementById('salRegYear')?.value  || new Date().getFullYear());
@@ -501,6 +525,66 @@ const PAY = {
     a.download=`SalaryRegister_${yr}_${fmt2(mo)}.csv`; a.click();
   }
 };
+
+// ── Export Utility Functions ──────────────────────────────────────────
+
+function exportRegisterExcel(tbodyId, filename, tableElParam) {
+  if (typeof XLSX === 'undefined') { alert('Excel library not loaded. Please refresh the page.'); return; }
+  const tableEl = tableElParam || (tbodyId ? document.getElementById(tbodyId)?.closest('table') : null);
+  if (!tableEl) { alert('No data to export'); return; }
+  const wb = XLSX.utils.table_to_book(tableEl, {sheet: 'Sheet1'});
+  XLSX.writeFile(wb, (filename||'Report') + '.xlsx');
+}
+
+function exportRegisterPDF(title, tableEl) {
+  if (!tableEl) { alert('No data to export'); return; }
+  const co = DB.getSetting('companyName','Indus Projects Pvt. Ltd.');
+  const win = window.open('', '_blank');
+  if (!win) { alert('Please allow popups for PDF export'); return; }
+  win.document.write(`<!DOCTYPE html><html><head><meta charset="utf-8"><title>${title}</title>
+    <style>
+      body{font-family:Arial,sans-serif;font-size:9pt;margin:12px}
+      h2{text-align:center;font-size:13pt;margin-bottom:3px}
+      .sub{text-align:center;font-size:9pt;color:#555;margin-bottom:8px}
+      table{width:100%;border-collapse:collapse}
+      th{background:#1a3c5e;color:#fff;padding:4px 5px;font-size:8pt;text-align:center;border:1px solid #aaa}
+      td{border:1px solid #ccc;padding:3px 5px;font-size:8pt}
+      .text-end{text-align:right} .sr-total td{background:#e8f0fe;font-weight:bold}
+      @page{size:A4 landscape;margin:8mm}
+      .no-print{display:none}
+      @media screen{.no-print{display:block;text-align:center;margin-top:12px}}
+    </style></head><body>
+    <h2>${title}</h2>
+    <div class="sub">${co} &nbsp;·&nbsp; Printed: ${new Date().toLocaleDateString('en-IN')}</div>
+    ${tableEl.outerHTML}
+    <div class="no-print"><button onclick="window.print()" style="padding:6px 24px;background:#1a3c5e;color:#fff;border:none;cursor:pointer;border-radius:4px">Print / Save as PDF</button></div>
+    <scr`+`ipt>window.onload=()=>setTimeout(()=>window.print(),400)<\/scr`+`ipt>
+    </body></html>`);
+  win.document.close();
+}
+
+function exportRegisterWord(title, tableEl, filename) {
+  if (!tableEl) { alert('No data to export'); return; }
+  const co = DB.getSetting('companyName','Indus Projects Pvt. Ltd.');
+  const html = `<html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:w="urn:schemas-microsoft-com:office:word">
+    <head><meta charset="utf-8"><title>${title}</title>
+    <style>
+      body{font-family:Arial,sans-serif;font-size:9pt}
+      h2{text-align:center;font-size:14pt;margin-bottom:3px}
+      .sub{text-align:center;font-size:9pt;color:#555}
+      table{border-collapse:collapse;width:100%}
+      th{background:#1a3c5e;color:#fff;padding:3px 5px;font-size:8pt;border:1px solid #000;text-align:center}
+      td{border:1px solid #000;padding:3px 5px;font-size:8pt}
+    </style></head>
+    <body>
+    <h2>${title}</h2>
+    <p class="sub">${co}</p>
+    ${tableEl.outerHTML}
+    </body></html>`;
+  const blob = new Blob(['﻿'+html], {type:'application/msword'});
+  const a = document.createElement('a'); a.href=URL.createObjectURL(blob);
+  a.download=(filename||'Report')+'.doc'; a.click();
+}
 
 // Number to words (Indian style)
 function numToWords(num) {

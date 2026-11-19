@@ -291,11 +291,85 @@ const ATT = {
   },
 
   // ── Timing Register (Registers section) ──────────────────────
+  renderSingleEmpTimingReport(empId, mo, yr) {
+    const emp = DB.getEmployee(empId); if (!emp) return;
+    const days = daysInMonth(yr, mo);
+    const section = document.getElementById('singleEmpReportSection');
+    const titleEl = document.getElementById('singleEmpReportTitle');
+    const tbody = document.getElementById('singleEmpReportBody');
+    if (!section || !tbody) return;
+    if (titleEl) titleEl.textContent = `${emp.firstName} ${emp.lastName} (${emp.empCode}) — ${monthName(mo)} ${yr}`;
+    section.dataset.empId = empId;
+    section.dataset.mo = mo;
+    section.dataset.yr = yr;
+    const DAYS = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
+    let totalMins = 0, presentCount = 0;
+    const rows = [];
+    for (let d = 1; d <= days; d++) {
+      const dt = `${yr}-${fmt2(mo)}-${fmt2(d)}`;
+      const dow = new Date(dt).getDay();
+      const rec = DB.getAttByEmpDate(empId, dt);
+      const isHol = DB.isHoliday(dt);
+      const isWO = dow === 0;
+      const pi = rec?.punchIn||{}, po = rec?.punchOut||{};
+      const hours = this._calcHours(pi.time, po.time);
+      if (hours) { const [h,m] = hours.match(/(\d+)h\s*(\d+)m/)?.slice(1)||[0,0]; totalMins += Number(h)*60+Number(m); }
+      const status = isHol ? 'Holiday' : isWO ? 'Week Off' : (rec?.status || 'absent');
+      if (status === 'present') presentCount++;
+      const statusCls = status==='present'?'success':status==='absent'?'danger':status==='half-day'?'warning':status==='on-leave'?'info':status==='Holiday'?'light text-dark':'secondary';
+      const mapLink = (lat, lng) => lat ? `<a href="https://maps.google.com/?q=${lat},${lng}" target="_blank" class="btn btn-xs btn-outline-primary py-0 px-1 fs-11"><i class="fas fa-map"></i></a>` : '';
+      rows.push(`<tr class="${isWO||isHol?'table-light text-muted':''}">
+        <td class="fw-500">${fmtDate(dt)}</td>
+        <td class="text-muted">${DAYS[dow]}</td>
+        <td class="text-center">${pi.time?`<strong class="text-success">${pi.time}</strong>`:'<span class="text-muted">-</span>'} ${mapLink(pi.lat,pi.lng)}</td>
+        <td class="fs-11 text-muted">${pi.address?pi.address.slice(0,55)+(pi.address.length>55?'…':''):''}</td>
+        <td class="text-center">${po.time?`<strong class="text-primary">${po.time}</strong>`:'<span class="text-muted">-</span>'} ${mapLink(po.lat,po.lng)}</td>
+        <td class="fs-11 text-muted">${po.address?po.address.slice(0,55)+(po.address.length>55?'…':''):''}</td>
+        <td class="text-center fw-600">${hours||'-'}</td>
+        <td class="text-center"><span class="badge bg-${statusCls}">${status==='on-leave'?'Leave':status==='half-day'?'Half':status.charAt(0).toUpperCase()+status.slice(1)}</span></td>
+      </tr>`);
+    }
+    // Summary row
+    const totalH = Math.floor(totalMins/60), totalM = totalMins%60;
+    rows.push(`<tr class="table-primary fw-700">
+      <td colspan="6" class="text-end">Total Present: ${presentCount} days</td>
+      <td class="text-center">${totalH}h ${totalM}m</td>
+      <td></td>
+    </tr>`);
+    tbody.innerHTML = rows.join('');
+    section.style.display = '';
+  },
+
+  exportSingleEmpExcel() {
+    const s = document.getElementById('singleEmpReportSection'); if (!s) return;
+    const tableEl = document.getElementById('singleEmpReportTable');
+    const title = document.getElementById('singleEmpReportTitle')?.textContent || 'DailyReport';
+    exportRegisterExcel(null, title.replace(/[^a-z0-9]/gi,'_'), tableEl);
+  },
+
+  exportSingleEmpPDF() {
+    const tableEl = document.getElementById('singleEmpReportTable');
+    const title = document.getElementById('singleEmpReportTitle')?.textContent || 'Daily Report';
+    exportRegisterPDF(title, tableEl);
+  },
+
+  exportSingleEmpWord() {
+    const tableEl = document.getElementById('singleEmpReportTable');
+    const title = document.getElementById('singleEmpReportTitle')?.textContent || 'Daily Report';
+    exportRegisterWord(title, tableEl, title.replace(/[^a-z0-9]/gi,'_'));
+  },
+
   renderTimingRegister() {
     const mo = Number(document.getElementById('timRegMonth')?.value || new Date().getMonth()+1);
     const yr = Number(document.getElementById('timRegYear')?.value  || new Date().getFullYear());
     const empFilter = document.getElementById('timRegEmp')?.value || '';
     document.getElementById('timRegLabel').textContent = `${monthName(mo)} ${yr}`;
+    // Show/hide single employee report
+    if (empFilter) {
+      this.renderSingleEmpTimingReport(empFilter, mo, yr);
+    } else {
+      const s = document.getElementById('singleEmpReportSection'); if (s) s.style.display = 'none';
+    }
 
     const emps = DB.getEmployees().filter(e => e.status==='active' && (!empFilter || e.id===empFilter));
     const days = daysInMonth(yr, mo);
@@ -339,6 +413,27 @@ const ATT = {
     let mins = (oh * 60 + om) - (ih * 60 + im);
     if (mins <= 0) return '';
     return `${Math.floor(mins/60)}h ${mins%60}m`;
+  },
+
+  exportTimingExcel() {
+    const mo = Number(document.getElementById('timRegMonth')?.value || new Date().getMonth()+1);
+    const yr = Number(document.getElementById('timRegYear')?.value  || new Date().getFullYear());
+    const tableEl = document.querySelector('#regTiming .card:last-child table');
+    exportRegisterExcel(null, `TimingRegister_${yr}_${fmt2(mo)}`, tableEl);
+  },
+
+  exportTimingPDF() {
+    const mo = Number(document.getElementById('timRegMonth')?.value || new Date().getMonth()+1);
+    const yr = Number(document.getElementById('timRegYear')?.value  || new Date().getFullYear());
+    const tableEl = document.querySelector('#regTiming .card:last-child table');
+    exportRegisterPDF(`Timing Register — ${monthName(mo)} ${yr}`, tableEl);
+  },
+
+  exportTimingWord() {
+    const mo = Number(document.getElementById('timRegMonth')?.value || new Date().getMonth()+1);
+    const yr = Number(document.getElementById('timRegYear')?.value  || new Date().getFullYear());
+    const tableEl = document.querySelector('#regTiming .card:last-child table');
+    exportRegisterWord(`Timing Register — ${monthName(mo)} ${yr}`, tableEl, `TimingRegister_${yr}_${fmt2(mo)}`);
   },
 
   exportTimingRegister() {
