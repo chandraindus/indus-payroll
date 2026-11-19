@@ -1,0 +1,167 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
+<title>Attendance — Indus Projects</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:Arial,sans-serif;background:#f0f2f5;min-height:100vh}
+.header{background:#1a3c5e;color:#fff;padding:16px;text-align:center}
+.header h2{font-size:18px;font-weight:700}
+.header p{font-size:12px;opacity:0.8;margin-top:4px}
+.search-box{padding:12px 16px;background:#fff;border-bottom:1px solid #e0e0e0}
+.search-box input{width:100%;padding:10px 14px;font-size:16px;border:1px solid #ccc;border-radius:8px;outline:none}
+.search-box input:focus{border-color:#2d7dd2}
+.emp-list{padding:8px 0}
+.emp-card{background:#fff;margin:8px 12px;border-radius:12px;padding:16px;box-shadow:0 1px 4px rgba(0,0,0,0.1)}
+.emp-name{font-size:17px;font-weight:700;color:#1a3c5e}
+.emp-info{font-size:13px;color:#777;margin:4px 0 12px}
+.btn-row{display:flex;gap:10px}
+.btn-in{flex:1;padding:12px;background:#28a745;color:#fff;border:none;border-radius:8px;font-size:15px;font-weight:600;cursor:pointer}
+.btn-out{flex:1;padding:12px;background:#dc3545;color:#fff;border:none;border-radius:8px;font-size:15px;font-weight:600;cursor:pointer}
+.btn-in:disabled,.btn-out:disabled{opacity:0.4;cursor:not-allowed}
+.punch-status{font-size:12px;margin-top:8px;padding:6px 10px;border-radius:6px;text-align:center}
+.punch-status.in{background:#d4edda;color:#155724}
+.punch-status.out{background:#d1ecf1;color:#0c5460}
+.loading{text-align:center;padding:40px;color:#999}
+.spinner{width:36px;height:36px;border:4px solid #e3e3e3;border-top-color:#2d7dd2;border-radius:50%;animation:spin 1s linear infinite;margin:0 auto 12px}
+@keyframes spin{to{transform:rotate(360deg)}}
+.toast{position:fixed;bottom:20px;left:50%;transform:translateX(-50%);background:#333;color:#fff;padding:12px 24px;border-radius:24px;font-size:14px;z-index:999;display:none}
+.toast.show{display:block}
+.empty{text-align:center;padding:40px 20px;color:#999;font-size:15px}
+</style>
+</head>
+<body>
+
+<div class="header">
+  <h2>📍 Attendance</h2>
+  <p>Indus Projects Pvt. Ltd.</p>
+</div>
+
+<div class="search-box">
+  <input type="text" id="searchInput" placeholder="Search by name or phone..." oninput="filterEmployees()" autocomplete="off">
+</div>
+
+<div id="empList" class="emp-list">
+  <div class="loading"><div class="spinner"></div>Loading employees...</div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+let allEmployees = [];
+let todayAttendance = {};
+const today = new Date().toISOString().slice(0,10);
+
+function showToast(msg, color) {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.style.background = color || '#333';
+  t.classList.add('show');
+  setTimeout(() => t.classList.remove('show'), 3000);
+}
+
+async function loadData() {
+  try {
+    const [emps, att] = await Promise.all([
+      fetch('/api/employees').then(r => r.json()),
+      fetch('/api/attendance').then(r => r.json())
+    ]);
+    allEmployees = emps.filter(e => e.status === 'active');
+    // Build today's attendance map
+    att.filter(a => a.date === today).forEach(a => { todayAttendance[a.empId] = a; });
+    renderList(allEmployees);
+  } catch(e) {
+    document.getElementById('empList').innerHTML = '<div class="empty">Could not load employees.<br>Please check your connection.</div>';
+  }
+}
+
+function filterEmployees() {
+  const q = document.getElementById('searchInput').value.trim().toLowerCase();
+  const filtered = q
+    ? allEmployees.filter(e =>
+        (e.firstName+' '+e.lastName).toLowerCase().includes(q) ||
+        e.phone.includes(q) || e.empCode.toLowerCase().includes(q))
+    : allEmployees;
+  renderList(filtered);
+}
+
+function renderList(emps) {
+  if (!emps.length) {
+    document.getElementById('empList').innerHTML = '<div class="empty">No employees found</div>';
+    return;
+  }
+  document.getElementById('empList').innerHTML = emps.map(e => {
+    const att = todayAttendance[e.id];
+    const inTime  = att?.punchIn?.time  || '';
+    const outTime = att?.punchOut?.time || '';
+    return `
+    <div class="emp-card">
+      <div class="emp-name">${e.firstName} ${e.lastName}</div>
+      <div class="emp-info">${e.empCode} · ${e.designation}</div>
+      <div class="btn-row">
+        <button class="btn-in"  id="in_${e.id}"  onclick="punch('${e.id}','in')"  ${inTime?'disabled':''}>
+          ${inTime ? '✓ In '+inTime : '👆 Punch In'}
+        </button>
+        <button class="btn-out" id="out_${e.id}" onclick="punch('${e.id}','out')" ${!inTime||outTime?'disabled':''}>
+          ${outTime ? '✓ Out '+outTime : '👋 Punch Out'}
+        </button>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+async function punch(empId, type) {
+  const btn = document.getElementById((type==='in'?'in_':'out_')+empId);
+  btn.disabled = true;
+  btn.textContent = '📡 Getting location...';
+
+  const doSave = async (lat, lng, address) => {
+    try {
+      const r = await fetch('/api/punch', {
+        method:'POST',
+        headers:{'Content-Type':'application/json'},
+        body: JSON.stringify({ empId, type, lat, lng, address })
+      });
+      const data = await r.json();
+      if (data.ok) {
+        if (!todayAttendance[empId]) todayAttendance[empId] = { empId, date: today, punchIn:{}, punchOut:{} };
+        const rec = todayAttendance[empId];
+        const punch = { time: data.time, lat, lng, address };
+        if (type==='in') rec.punchIn = punch; else rec.punchOut = punch;
+        showToast('✅ Punch '+(type==='in'?'In':'Out')+' recorded at '+data.time, '#28a745');
+        filterEmployees();
+      } else {
+        showToast('❌ Error: '+data.error, '#dc3545');
+        btn.disabled = false;
+      }
+    } catch(e) {
+      showToast('❌ Connection error', '#dc3545');
+      btn.disabled = false;
+    }
+  };
+
+  if (navigator.geolocation) {
+    navigator.geolocation.getCurrentPosition(
+      async pos => {
+        const { latitude: lat, longitude: lng } = pos.coords;
+        let address = `${lat.toFixed(5)}, ${lng.toFixed(5)}`;
+        try {
+          const geo = await fetch(`https://nominatim.openstreetmap.org/reverse?lat=${lat}&lon=${lng}&format=json`).then(r=>r.json());
+          address = geo.display_name || address;
+        } catch {}
+        await doSave(lat, lng, address);
+      },
+      async () => { await doSave('', '', 'Location not available'); },
+      { timeout: 8000, enableHighAccuracy: true }
+    );
+  } else {
+    await doSave('', '', 'GPS not supported');
+  }
+}
+
+loadData();
+</script>
+</body>
+</html>
