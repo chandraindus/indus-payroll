@@ -506,6 +506,56 @@ const PAY = {
     exportRegisterWord(`Salary Register — ${monthName(mo)} ${yr}`, tableEl, `SalaryRegister_${yr}_${fmt2(mo)}`);
   },
 
+  renderBankPaymentStatement() {
+    const mo = Number(document.getElementById('bankRegMonth')?.value || new Date().getMonth()+1);
+    const yr = Number(document.getElementById('bankRegYear')?.value  || new Date().getFullYear());
+    if (document.getElementById('bankRegLabel')) document.getElementById('bankRegLabel').textContent = `${monthName(mo)} ${yr}`;
+    const emps = DB.getEmployees().filter(e => e.status === 'active');
+    const tbody = document.getElementById('bankRegBody');
+    const tfoot = document.getElementById('bankRegFoot');
+    if (!tbody) return;
+    if (!emps.length) { tbody.innerHTML = '<tr><td colspan="10" class="text-center text-muted py-4">No active employees found</td></tr>'; if (tfoot) tfoot.innerHTML = ''; return; }
+    let totalNet = 0;
+    tbody.innerHTML = emps.map((emp, i) => {
+      const calc = this.calcPayroll(emp, yr, mo);
+      totalNet += calc.netPay;
+      return `<tr>
+        <td>${i+1}</td>
+        <td>${emp.empCode||''}</td>
+        <td>${emp.firstName||''} ${emp.lastName||''}</td>
+        <td>${emp.designation||'-'}</td>
+        <td>${emp.department||'-'}</td>
+        <td>${emp.bankName||'-'}</td>
+        <td>${emp.bankAccount||'-'}</td>
+        <td>${emp.ifsc||'-'}</td>
+        <td>${emp.bankBranch||'-'}</td>
+        <td class="text-end fw-600">${currFmt(calc.netPay)}</td>
+      </tr>`;
+    }).join('');
+    if (tfoot) tfoot.innerHTML = `<tr class="table-dark fw-bold"><td colspan="9" class="text-end">Total Net Pay:</td><td class="text-end">${currFmt(totalNet)}</td></tr>`;
+  },
+
+  exportBankExcel() {
+    const mo = Number(document.getElementById('bankRegMonth')?.value || new Date().getMonth()+1);
+    const yr = Number(document.getElementById('bankRegYear')?.value  || new Date().getFullYear());
+    const tableEl = document.getElementById('bankRegTable');
+    exportRegisterExcel(null, `BankPaymentStatement_${yr}_${fmt2(mo)}`, tableEl);
+  },
+
+  exportBankPDF() {
+    const mo = Number(document.getElementById('bankRegMonth')?.value || new Date().getMonth()+1);
+    const yr = Number(document.getElementById('bankRegYear')?.value  || new Date().getFullYear());
+    const tableEl = document.getElementById('bankRegTable');
+    exportRegisterPDF(`Bank Payment Statement — ${monthName(mo)} ${yr}`, tableEl);
+  },
+
+  exportBankWord() {
+    const mo = Number(document.getElementById('bankRegMonth')?.value || new Date().getMonth()+1);
+    const yr = Number(document.getElementById('bankRegYear')?.value  || new Date().getFullYear());
+    const tableEl = document.getElementById('bankRegTable');
+    exportRegisterWord(`Bank Payment Statement — ${monthName(mo)} ${yr}`, tableEl, `BankPaymentStatement_${yr}_${fmt2(mo)}`);
+  },
+
   exportSalaryRegister() {
     const mo = Number(document.getElementById('salRegMonth')?.value || new Date().getMonth()+1);
     const yr = Number(document.getElementById('salRegYear')?.value  || new Date().getFullYear());

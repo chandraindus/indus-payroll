@@ -356,6 +356,7 @@
     <li class="nav-item"><a class="nav-link" data-bs-toggle="tab" href="#regLTA" onclick="setTimeout(()=>PAY.renderLTARegister(),80)">LTA Register</a></li>
     <li class="nav-item"><a class="nav-link" data-bs-toggle="tab" href="#regEncash" onclick="setTimeout(()=>LEAVES.renderEncashmentRegister2(),80)">Leave Encashment</a></li>
     <li class="nav-item"><a class="nav-link" data-bs-toggle="tab" href="#regTiming" onclick="setTimeout(()=>ATT.renderTimingRegister(),80)"><i class="fas fa-clock me-1"></i>Timing Register</a></li>
+    <li class="nav-item"><a class="nav-link" data-bs-toggle="tab" href="#regBank" onclick="setTimeout(()=>PAY.renderBankPaymentStatement(),80)"><i class="fas fa-university me-1"></i>Bank Payment Statement</a></li>
   </ul>
   <div class="tab-content">
 
@@ -598,6 +599,57 @@
             <tbody id="timRegBody">
               <tr><td colspan="10" class="text-center text-muted py-4">Select month and click Timing Register tab</td></tr>
             </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <!-- Bank Payment Statement -->
+    <div class="tab-pane fade" id="regBank">
+      <div class="d-flex justify-content-between align-items-center mb-3 flex-wrap gap-2">
+        <div class="d-flex gap-2 align-items-center flex-wrap">
+          <label class="form-label mb-0 fw-500">Month:</label>
+          <select id="bankRegMonth" class="form-select form-select-sm" style="width:130px" onchange="PAY.renderBankPaymentStatement()">
+            <option value="1">January</option><option value="2">February</option><option value="3">March</option>
+            <option value="4">April</option><option value="5">May</option><option value="6">June</option>
+            <option value="7">July</option><option value="8">August</option><option value="9">September</option>
+            <option value="10">October</option><option value="11">November</option><option value="12">December</option>
+          </select>
+          <select id="bankRegYear" class="form-select form-select-sm" style="width:90px" onchange="PAY.renderBankPaymentStatement()">
+            <option value="2025">2025</option><option value="2026" selected>2026</option><option value="2027">2027</option>
+          </select>
+          <span class="fw-600 text-primary" id="bankRegLabel"></span>
+        </div>
+        <div class="btn-group">
+          <button class="btn btn-outline-success btn-sm dropdown-toggle" data-bs-toggle="dropdown"><i class="fas fa-download me-1"></i>Export</button>
+          <ul class="dropdown-menu dropdown-menu-end">
+            <li><a class="dropdown-item" href="#" onclick="PAY.exportBankExcel();return false"><i class="fas fa-file-excel me-2 text-success"></i>Excel (.xlsx)</a></li>
+            <li><a class="dropdown-item" href="#" onclick="PAY.exportBankPDF();return false"><i class="fas fa-file-pdf me-2 text-danger"></i>PDF</a></li>
+            <li><a class="dropdown-item" href="#" onclick="PAY.exportBankWord();return false"><i class="fas fa-file-word me-2 text-primary"></i>Word (.doc)</a></li>
+          </ul>
+        </div>
+      </div>
+      <div class="card">
+        <div class="table-responsive">
+          <table class="table table-hover table-sm mb-0 fs-13" id="bankRegTable">
+            <thead class="table-dark">
+              <tr>
+                <th>SR</th>
+                <th>Emp Code</th>
+                <th>Name</th>
+                <th>Designation</th>
+                <th>Department</th>
+                <th>Bank Name</th>
+                <th>Account No</th>
+                <th>IFSC Code</th>
+                <th>Branch</th>
+                <th class="text-end">Net Pay (₹)</th>
+              </tr>
+            </thead>
+            <tbody id="bankRegBody">
+              <tr><td colspan="10" class="text-center text-muted py-4">Select month and click Bank Payment Statement tab</td></tr>
+            </tbody>
+            <tfoot id="bankRegFoot"></tfoot>
           </table>
         </div>
       </div>
