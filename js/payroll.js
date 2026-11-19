@@ -287,23 +287,40 @@ const PAY = {
   },
 
   renderBonusRegister() {
-    const yr = document.getElementById('bonusYear')?.value || new Date().getFullYear();
-    const records = DB.getBonusRecords().filter(r => r.year == yr);
+    const formula = document.getElementById('bonusFormula')?.value || '1month';
     const tbody = document.getElementById('bonusRegBody');
     if (!tbody) return;
-    tbody.innerHTML = records.length ? records.map(r => {
-      const emp = DB.getEmployee(r.empId);
+    const emps = DB.getEmployees().filter(e => e.status === 'active' && e.hasBonus);
+    if (!emps.length) {
+      tbody.innerHTML = '<tr><td colspan="9" class="text-center text-muted py-4">No employees with bonus eligibility — configure in Employee Register → Payroll tab</td></tr>';
+      return;
+    }
+    const labels = { '1month':'Festival (1 Month Basic)', 'statutory':'Statutory Min (8.33%)', '20pct':'Annual (20% of Basic)', 'configured':'As Configured' };
+    let total = 0;
+    tbody.innerHTML = emps.map((emp, i) => {
+      const basic = Number(emp.basic || 0);
+      let amount = 0;
+      if (formula === '1month') {
+        amount = basic;
+      } else if (formula === 'statutory') {
+        amount = Math.min(basic, 7000) * 12 * 8.33 / 100;
+      } else if (formula === '20pct') {
+        amount = basic * 12 * 20 / 100;
+      } else {
+        amount = emp.bonusType === 'percentage' ? basic * Number(emp.bonusValue||0)/100 : Number(emp.bonusValue||0);
+      }
+      amount = Math.round(amount);
+      total += amount;
       return `<tr>
-        <td>${emp?.empCode||'-'}</td><td>${emp?`${emp.firstName} ${emp.lastName}`:'-'}</td>
-        <td>${emp?.designation||'-'}</td><td>${emp?.department||'-'}</td>
-        <td>${currFmt(emp?.basic)}</td>
-        <td>${r.month?monthName(r.month):'-'}</td>
-        <td>${r.bonusType||'-'}</td>
-        <td class="fw-600">${currFmt(r.amount)}</td>
-        <td><span class="badge bg-${r.status==='paid'?'success':'warning'}">${r.status}</span></td>
-        <td>${r.remarks||'-'}</td>
+        <td>${i+1}</td><td>${emp.empCode||''}</td>
+        <td>${emp.firstName||''} ${emp.lastName||''}</td>
+        <td>${emp.designation||'-'}</td><td>${emp.department||'-'}</td>
+        <td class="text-end">${currFmt(basic)}</td>
+        <td>${labels[formula]||formula}</td>
+        <td class="text-end fw-600">${currFmt(amount)}</td>
+        <td class="text-end">${currFmt(amount)}</td>
       </tr>`;
-    }).join('') : '<tr><td colspan="10" class="text-center text-muted py-4">No bonus records for this year</td></tr>';
+    }).join('') + `<tr class="table-dark fw-bold"><td colspan="7" class="text-end">Total Bonus:</td><td class="text-end">${currFmt(total)}</td><td class="text-end">${currFmt(total)}</td></tr>`;
   },
 
   openBonusForm() {
@@ -347,22 +364,28 @@ const PAY = {
   },
 
   renderLTARegister() {
-    const yr = document.getElementById('ltaYear')?.value || new Date().getFullYear();
-    const records = DB.getLTARecords().filter(r => r.year == yr);
     const tbody = document.getElementById('ltaRegBody');
     if (!tbody) return;
-    tbody.innerHTML = records.length ? records.map(r => {
-      const emp = DB.getEmployee(r.empId);
+    const emps = DB.getEmployees().filter(e => e.status === 'active' && e.hasLTA);
+    if (!emps.length) {
+      tbody.innerHTML = '<tr><td colspan="8" class="text-center text-muted py-4">No employees with LTA eligibility — configure in Employee Register → Payroll tab</td></tr>';
+      return;
+    }
+    let total = 0;
+    tbody.innerHTML = emps.map((emp, i) => {
+      const basic = Number(emp.basic || 0);
+      const annual = Number(emp.ltaAmount || basic);
+      const monthly = annual / 12;
+      total += annual;
       return `<tr>
-        <td>${emp?.empCode||'-'}</td><td>${emp?`${emp.firstName} ${emp.lastName}`:'-'}</td>
-        <td>${fmtDate(r.claimDate)}</td>
-        <td>${r.travelFrom} → ${r.travelTo}</td>
-        <td>${fmtDate(r.travelFrom_date)} - ${fmtDate(r.travelTo_date)}</td>
-        <td>${currFmt(emp?.ltaAmount)}</td>
-        <td class="fw-600">${currFmt(r.claimAmount)}</td>
-        <td><span class="badge bg-${r.status==='paid'?'success':'warning'}">${r.status}</span></td>
+        <td>${i+1}</td><td>${emp.empCode||''}</td>
+        <td>${emp.firstName||''} ${emp.lastName||''}</td>
+        <td>${emp.designation||'-'}</td><td>${emp.department||'-'}</td>
+        <td class="text-end">${currFmt(basic)}</td>
+        <td class="text-end">${currFmt(monthly)}</td>
+        <td class="text-end fw-600">${currFmt(annual)}</td>
       </tr>`;
-    }).join('') : '<tr><td colspan="8" class="text-center text-muted py-4">No LTA records for this year</td></tr>';
+    }).join('') + `<tr class="table-dark fw-bold"><td colspan="7" class="text-end">Total Annual LTA:</td><td class="text-end">${currFmt(total)}</td></tr>`;
   },
 
   openLTAForm() {

@@ -435,9 +435,16 @@
 
     <div class="tab-pane fade" id="regBonus">
       <div class="d-flex justify-content-between align-items-center mb-3">
-        <div class="d-flex gap-2 align-items-center">
+        <div class="d-flex gap-2 align-items-center flex-wrap">
           <label class="form-label mb-0 fw-500">Year:</label>
           <select id="bonusYear" class="form-select form-select-sm" style="width:100px" onchange="PAY.renderBonusRegister()"><option>2026</option><option>2025</option><option>2027</option></select>
+          <label class="form-label mb-0 fw-500 ms-2">Formula:</label>
+          <select id="bonusFormula" class="form-select form-select-sm" style="width:230px" onchange="PAY.renderBonusRegister()">
+            <option value="1month">Festival Bonus (1 Month Basic)</option>
+            <option value="statutory">Statutory Minimum (8.33%)</option>
+            <option value="20pct">Annual Bonus (20% of Basic)</option>
+            <option value="configured">As Per Employee Config</option>
+          </select>
         </div>
         <div class="d-flex gap-2">
           <button class="btn btn-primary btn-sm" onclick="PAY.openBonusForm()"><i class="fas fa-plus me-1"></i>Add Bonus</button>
@@ -454,7 +461,7 @@
       <div class="card">
         <div class="table-responsive">
           <table class="table table-hover mb-0" id="bonusRegTable">
-            <thead><tr><th>Emp Code</th><th>Name</th><th>Designation</th><th>Department</th><th>Basic</th><th>Month</th><th>Bonus Type</th><th>Amount</th><th>Status</th><th>Remarks</th></tr></thead>
+            <thead class="table-dark"><tr><th>#</th><th>Emp Code</th><th>Name</th><th>Designation</th><th>Department</th><th class="text-end">Basic (₹)</th><th>Formula</th><th class="text-end">Bonus Amount (₹)</th><th class="text-end">Net Payable (₹)</th></tr></thead>
             <tbody id="bonusRegBody"></tbody>
           </table>
         </div>
@@ -481,7 +488,7 @@
       <div class="card">
         <div class="table-responsive">
           <table class="table table-hover mb-0" id="ltaRegTable">
-            <thead><tr><th>Emp Code</th><th>Name</th><th>Claim Date</th><th>Journey</th><th>Travel Period</th><th>LTA Entitlement</th><th>Claim Amount</th><th>Status</th></tr></thead>
+            <thead class="table-dark"><tr><th>#</th><th>Emp Code</th><th>Name</th><th>Designation</th><th>Department</th><th class="text-end">Basic (₹)</th><th class="text-end">Monthly LTA (₹)</th><th class="text-end">Annual LTA (₹)</th></tr></thead>
             <tbody id="ltaRegBody"></tbody>
           </table>
         </div>
@@ -512,7 +519,7 @@
       <div class="card">
         <div class="table-responsive">
           <table class="table table-hover mb-0" id="encashRegTable2">
-            <thead><tr><th>Emp Code</th><th>Name</th><th>Designation</th><th>Department</th><th>Date</th><th>Leave Type</th><th>Days</th><th>Per Day Value</th><th>Amount</th><th>Remarks</th><th>Status</th></tr></thead>
+            <thead class="table-dark"><tr><th>#</th><th>Emp Code</th><th>Name</th><th>Designation</th><th>Department</th><th class="text-center">EL Balance (Days)</th><th class="text-end">Per Day Rate (₹)</th><th class="text-end">Encashment Amount (₹)</th></tr></thead>
             <tbody id="encashRegBody2"></tbody>
           </table>
         </div>
