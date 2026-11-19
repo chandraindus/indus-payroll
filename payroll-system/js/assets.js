@@ -205,38 +205,45 @@ const ASSETS = {
     if (!container) return;
 
     const emps = DB.getEmployees().filter(e => e.status === 'active');
-    const allAssignments = DB.getAssetAssignments().filter(a => a.status === 'active');
+    const allAssignments = DB.getAssetAssignments();
     const allAssets = DB.getAssets();
 
-    // Build per-employee asset list
+    // Build per-employee asset list (current + history)
     let rows = emps.map(emp => {
-      const myAssignments = allAssignments.filter(a => a.empId === emp.id);
-      const myAssets = myAssignments.map(a => {
+      const myAll = allAssignments.filter(a => a.empId === emp.id)
+        .sort((a, b) => (b.assignedDate||'').localeCompare(a.assignedDate||''));
+      const current = myAll.filter(a => a.status === 'active').map(a => {
         const asset = allAssets.find(x => x.id === a.assetId);
         return asset ? { ...asset, assignment: a } : null;
       }).filter(Boolean);
-      return { emp, assets: myAssets };
+      const history = myAll.filter(a => a.status !== 'active').map(a => {
+        const asset = allAssets.find(x => x.id === a.assetId);
+        return asset ? { ...asset, assignment: a } : null;
+      }).filter(Boolean);
+      return { emp, current, history };
     });
 
     // Apply search filter
     if (q) {
       rows = rows.filter(r =>
         (`${r.emp.empCode} ${r.emp.firstName} ${r.emp.lastName}`).toLowerCase().includes(q) ||
-        r.assets.some(a => (`${a.assetCode} ${a.assetName} ${a.category||''} ${a.serialNumber||''}`).toLowerCase().includes(q))
+        [...r.current, ...r.history].some(a => (`${a.assetCode} ${a.assetName} ${a.category||''} ${a.serialNumber||''}`).toLowerCase().includes(q))
       );
     }
 
-    const totalEmpWithAssets = rows.filter(r => r.assets.length > 0).length;
-    const totalAssigned = rows.reduce((s, r) => s + r.assets.length, 0);
+    const totalEmpWithAssets = rows.filter(r => r.current.length > 0).length;
+    const totalAssigned = rows.reduce((s, r) => s + r.current.length, 0);
     const sumEl = document.getElementById('empAssetSummary');
-    if (sumEl) sumEl.textContent = `${totalEmpWithAssets} employees · ${totalAssigned} assets assigned`;
+    if (sumEl) sumEl.textContent = `${totalEmpWithAssets} employees · ${totalAssigned} currently assigned`;
 
     if (!rows.length) {
       container.innerHTML = '<div class="text-center text-muted py-5">No employees found</div>';
       return;
     }
 
-    container.innerHTML = rows.map(({ emp, assets }) => `
+    const condBadge = c => `<span class="badge bg-${c==='good'?'success':c==='fair'?'warning':'danger'}">${c||'-'}</span>`;
+
+    container.innerHTML = rows.map(({ emp, current, history }) => `
       <div class="card mb-3">
         <div class="card-header d-flex justify-content-between align-items-center py-2">
           <div>
@@ -244,9 +251,14 @@ const ASSETS = {
             <span class="ms-2">${emp.firstName} ${emp.lastName}</span>
             <span class="ms-2 text-muted fs-12">${emp.designation||''} · ${emp.department||''}</span>
           </div>
-          <span class="badge bg-${assets.length>0?'primary':'secondary'}">${assets.length} asset${assets.length!==1?'s':''}</span>
+          <div class="d-flex gap-2">
+            <span class="badge bg-${current.length>0?'primary':'secondary'}">${current.length} current</span>
+            ${history.length ? `<span class="badge bg-light text-dark border">${history.length} history</span>` : ''}
+          </div>
         </div>
-        ${assets.length ? `
+
+        ${current.length ? `
+        <div class="px-3 pt-2 pb-1"><small class="text-success fw-600"><i class="fas fa-check-circle me-1"></i>Currently Assigned</small></div>
         <div class="table-responsive">
           <table class="table table-sm mb-0">
             <thead class="table-light"><tr>
@@ -255,36 +267,67 @@ const ASSETS = {
               <th>Assigned Date</th><th>Condition</th><th>Value</th>
             </tr></thead>
             <tbody>
-              ${assets.map(a => `<tr>
+              ${current.map(a => `<tr>
                 <td><span class="fw-500 text-primary">${a.assetCode}</span></td>
                 <td>${a.assetName}</td>
                 <td>${a.category||'-'}</td>
-                <td>${a.brand||'-'} ${a.model||''}</td>
+                <td>${[a.brand,a.model].filter(Boolean).join(' ')||'-'}</td>
                 <td>${a.serialNumber||'-'}</td>
                 <td>${fmtDate(a.assignment.assignedDate)}</td>
-                <td><span class="badge bg-${a.assignment.conditionOnAssign==='good'?'success':a.assignment.conditionOnAssign==='fair'?'warning':'danger'}">${a.assignment.conditionOnAssign||'-'}</span></td>
+                <td>${condBadge(a.assignment.conditionOnAssign)}</td>
                 <td>${currFmt(a.currentValue||a.purchaseValue)}</td>
               </tr>`).join('')}
             </tbody>
           </table>
-        </div>` : `<div class="card-body text-muted fs-13 py-2">No assets assigned</div>`}
+        </div>` : ''}
+
+        ${history.length ? `
+        <div class="px-3 pt-2 pb-1 ${current.length?'border-top':''}">
+          <small class="text-muted fw-600"><i class="fas fa-history me-1"></i>Past Assignments</small>
+        </div>
+        <div class="table-responsive">
+          <table class="table table-sm mb-0 text-muted">
+            <thead class="table-light"><tr>
+              <th>Asset Code</th><th>Name</th><th>Category</th><th>Serial No.</th>
+              <th>Assigned Date</th><th>Condition (In)</th>
+              <th>Returned Date</th><th>Condition (Out)</th><th>Remarks</th>
+            </tr></thead>
+            <tbody>
+              ${history.map(a => `<tr>
+                <td>${a.assetCode}</td>
+                <td>${a.assetName}</td>
+                <td>${a.category||'-'}</td>
+                <td>${a.serialNumber||'-'}</td>
+                <td>${fmtDate(a.assignment.assignedDate)}</td>
+                <td>${condBadge(a.assignment.conditionOnAssign)}</td>
+                <td>${a.assignment.returnDate ? fmtDate(a.assignment.returnDate) : '-'}</td>
+                <td>${a.assignment.conditionOnReturn ? condBadge(a.assignment.conditionOnReturn) : '-'}</td>
+                <td><small>${a.assignment.returnRemarks||a.assignment.remarks||'-'}</small></td>
+              </tr>`).join('')}
+            </tbody>
+          </table>
+        </div>` : ''}
+
+        ${!current.length && !history.length ? `<div class="card-body text-muted fs-13 py-2">No asset history</div>` : ''}
       </div>`).join('');
   },
 
   exportEmpAssets() {
     const emps = DB.getEmployees().filter(e => e.status === 'active');
-    const allAssignments = DB.getAssetAssignments().filter(a => a.status === 'active');
+    const allAssignments = DB.getAssetAssignments();
     const allAssets = DB.getAssets();
-    let csv = 'Emp Code,Employee Name,Designation,Department,Asset Code,Asset Name,Category,Brand,Model,Serial No.,Assigned Date,Condition,Value\n';
+    let csv = 'Emp Code,Employee Name,Designation,Department,Asset Code,Asset Name,Category,Serial No.,Assigned Date,Cond. In,Returned Date,Cond. Out,Status,Remarks\n';
     emps.forEach(emp => {
-      const myAssignments = allAssignments.filter(a => a.empId === emp.id);
-      if (myAssignments.length === 0) {
+      const myAssignments = allAssignments
+        .filter(a => a.empId === emp.id)
+        .sort((a,b) => (b.assignedDate||'').localeCompare(a.assignedDate||''));
+      if (!myAssignments.length) {
         csv += `${emp.empCode},"${emp.firstName} ${emp.lastName}",${emp.designation||''},${emp.department||''},,,,,,,,,,\n`;
       } else {
         myAssignments.forEach(a => {
           const asset = allAssets.find(x => x.id === a.assetId);
           if (!asset) return;
-          csv += `${emp.empCode},"${emp.firstName} ${emp.lastName}",${emp.designation||''},${emp.department||''},${asset.assetCode},"${asset.assetName}",${asset.category||''},${asset.brand||''},${asset.model||''},${asset.serialNumber||''},${a.assignedDate},${a.conditionOnAssign||''},${asset.currentValue||asset.purchaseValue||0}\n`;
+          csv += `${emp.empCode},"${emp.firstName} ${emp.lastName}",${emp.designation||''},${emp.department||''},${asset.assetCode},"${asset.assetName}",${asset.category||''},${asset.serialNumber||''},${a.assignedDate||''},${a.conditionOnAssign||''},${a.returnDate||''},${a.conditionOnReturn||''},${a.status||''},${(a.returnRemarks||a.remarks||'').replace(/,/g,' ')}\n`;
         });
       }
     });
