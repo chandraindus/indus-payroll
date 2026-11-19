@@ -124,7 +124,7 @@ const COLLECTIONS = [
   'employees','attendance','assets','assetAssignments',
   'leaves','leaveBalances','payrolls','advances',
   'bonusRecords','ltaRecords','leaveEncashments',
-  'holidays','approvalLevels','departments','designations'
+  'holidays','approvalLevels','departments','designations','salaryRevisions'
 ];
 
 COLLECTIONS.forEach(col => {
@@ -159,6 +159,38 @@ app.get('/api/settings',  async (_req, res) => {
 app.post('/api/settings', async (req, res) => {
   try { await dbWriteSettings(req.body); res.json({ ok: true }); }
   catch(e) { res.status(500).json({ error: e.message }); }
+});
+
+// ── Employee portal authentication ───────────────────────────
+app.post('/api/employee-login', async (req, res) => {
+  const { empCode, password } = req.body;
+  if (!empCode || !password) return res.status(400).json({ error: 'Employee code and password are required' });
+  try {
+    const all = await dbRead('employees');
+    const emp = all.find(e => (e.empCode||'').toLowerCase() === empCode.trim().toLowerCase() && e.status === 'active');
+    if (!emp) return res.status(401).json({ error: 'Invalid employee code or account inactive' });
+    const correctPwd = emp.portalPassword || emp.empCode;
+    if (password !== correctPwd) return res.status(401).json({ error: 'Incorrect password' });
+    // Strip sensitive fields before returning
+    const { bankAccount, ifsc, aadhar, pan, drivingLicense, passportNo, portalPassword, photo, appointmentLetter, certificates, ...safe } = emp;
+    res.json({ ok: true, employee: safe });
+  } catch(e) { res.status(500).json({ error: e.message }); }
+});
+
+app.post('/api/employee-change-password', async (req, res) => {
+  const { empId, oldPassword, newPassword } = req.body;
+  if (!empId || !oldPassword || !newPassword) return res.status(400).json({ error: 'Missing fields' });
+  try {
+    const all = await dbRead('employees');
+    const emp = all.find(e => e.id === empId);
+    if (!emp) return res.status(404).json({ error: 'Employee not found' });
+    const correctPwd = emp.portalPassword || emp.empCode;
+    if (oldPassword !== correctPwd) return res.status(401).json({ error: 'Old password is incorrect' });
+    if (newPassword.length < 4) return res.status(400).json({ error: 'New password must be at least 4 characters' });
+    emp.portalPassword = newPassword;
+    await dbUpsert('employees', emp);
+    res.json({ ok: true });
+  } catch(e) { res.status(500).json({ error: e.message }); }
 });
 
 // ── Employee self-service punch endpoint ──────────────────────
