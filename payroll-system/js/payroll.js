@@ -33,13 +33,19 @@ const PAY = {
     const food  = emp.hasFoodAllowance ? Number(emp.foodAmount||0) * factor : 0;
     const phone = emp.hasPhoneBillAllowance ? Number(emp.phoneBillAmount||0) : 0; // flat
     const mobile= emp.hasMobilePhoneAllowance ? Number(emp.mobilePhoneAmount||0) : 0;
+    const conveyance = emp.hasConveyance ? Number(emp.conveyanceAmount||1600) : 0; // flat
     const other = Number(emp.otherAllowance||0) * factor;
-    const grossPay = basic + hra + food + phone + mobile + other;
+    const grossPay = basic + hra + food + phone + mobile + conveyance + other;
 
-    const pf = Number(emp.basic||0) * factor * (Number(emp.pfRate||12)/100);
+    // PF capped at ₹3,000 (wage ceiling ₹25,000)
+    const pf = Math.min(Number(emp.basic||0) * factor * (Number(emp.pfRate||12)/100), 3000);
     let esi = 0, medIns = 0;
     if (emp.insuranceType === 'ESI') esi = grossPay * 0.0075;
     else if (emp.insuranceType === 'Medical') medIns = Number(emp.medicalInsuranceAmount||0);
+    // Professional Tax: ₹200 if gross > ₹20,000; ₹150 if ₹15,001–₹20,000; else ₹0
+    const pt = grossPay > 20000 ? 200 : grossPay > 15000 ? 150 : 0;
+    // TDS / Income Tax
+    const tds = Number(emp.tdsAmount||0);
 
     // Advance recovery
     const advances = DB.getAdvancesByEmp(emp.id).filter(a => a.status==='approved');
@@ -52,13 +58,13 @@ const PAY = {
       }
     });
 
-    const totalDeductions = pf + esi + medIns + advRecovery;
+    const totalDeductions = pf + esi + medIns + pt + tds + advRecovery;
     const netPay = grossPay - totalDeductions;
 
     return {
       workingDays, presentDays, leaveDays, absentDays,
-      earnings: { basic, hra, food, phoneBill: phone, mobilePhone: mobile, other, grossPay },
-      deductions: { pf, esi, medicalInsurance: medIns, advance: advRecovery, totalDeductions },
+      earnings: { basic, hra, food, phoneBill: phone, mobilePhone: mobile, conveyance, other, grossPay },
+      deductions: { pf, esi, medicalInsurance: medIns, pt, tds, advance: advRecovery, totalDeductions },
       netPay: Math.max(0, netPay),
       factor
     };
@@ -223,6 +229,7 @@ const PAY = {
       ${row('Basic Salary', e.basic)}
       ${row('House Rent Allowance (HRA)', e.hra)}
       ${row('Food Allowance', e.food)}
+      ${row('Conveyance Allowance', e.conveyance)}
       ${row('Phone Bill Allowance', e.phoneBill)}
       ${row('Mobile Phone Allowance', e.mobilePhone)}
       ${row('Other Allowance', e.other)}
@@ -233,10 +240,11 @@ const PAY = {
     <div class="col-head">Deductions</div>
     <table class="pay">
       ${drow(`Provident Fund (${emp.pfRate||12}%)`, d.pf)}
+      ${drow('Professional Tax (PT)', d.pt)}
       ${drow('ESI (Employee 0.75%)', d.esi)}
       ${drow('Medical Insurance', d.medicalInsurance)}
+      ${drow('TDS / Income Tax', d.tds)}
       ${drow('Advance Recovery', d.advance)}
-      ${drow('Other Deductions', d.other||0)}
       <tr class="total-row"><td>Total Deductions</td><td class="amt ded">₹ ${numFmt(d.totalDeductions)}</td></tr>
     </table>
   </div>
@@ -412,56 +420,63 @@ const PAY = {
 
     document.getElementById('salRegLabel').textContent = `${monthName(mo)} ${yr}`;
 
-    let totBasic=0, totHRA=0, totFood=0, totPhone=0, totMobile=0, totOther=0,
-        totGross=0, totPF=0, totESI=0, totMed=0, totAdv=0, totDed=0, totNet=0;
+    let totBasic=0, totHRA=0, totFood=0, totConv=0, totPhone=0, totMobile=0, totOther=0,
+        totGross=0, totPF=0, totPT=0, totESI=0, totMed=0, totTDS=0, totAdv=0, totDed=0, totNet=0;
 
     const rows = emps.map((emp, i) => {
       const c = this.calcPayroll(emp, yr, mo);
       const e = c.earnings, d = c.deductions;
-      totBasic+=e.basic; totHRA+=e.hra; totFood+=e.food; totPhone+=e.phoneBill;
-      totMobile+=e.mobilePhone; totOther+=e.other; totGross+=e.grossPay;
-      totPF+=d.pf; totESI+=d.esi; totMed+=d.medicalInsurance; totAdv+=d.advance;
-      totDed+=d.totalDeductions; totNet+=c.netPay;
+      totBasic+=e.basic; totHRA+=e.hra; totFood+=e.food; totConv+=e.conveyance;
+      totPhone+=e.phoneBill; totMobile+=e.mobilePhone; totOther+=e.other; totGross+=e.grossPay;
+      totPF+=d.pf; totPT+=d.pt; totESI+=d.esi; totMed+=d.medicalInsurance;
+      totTDS+=d.tds; totAdv+=d.advance; totDed+=d.totalDeductions; totNet+=c.netPay;
       return `<tr>
         <td class="sr-no">${i+1}</td>
         <td class="sr-code">${emp.empCode}</td>
         <td class="sr-name">${emp.firstName} ${emp.lastName}</td>
         <td class="sr-desig">${emp.designation||'-'}</td>
-        <td class="sr-dept">${emp.department||'-'}</td>
         <td class="sr-num">${c.workingDays}</td>
         <td class="sr-num text-success">${c.presentDays}</td>
         <td class="sr-num text-danger">${c.absentDays}</td>
         <td class="sr-amt">${e.basic>0?currFmt(e.basic):'-'}</td>
         <td class="sr-amt">${e.hra>0?currFmt(e.hra):'-'}</td>
+        <td class="sr-amt">${e.conveyance>0?currFmt(e.conveyance):'-'}</td>
         <td class="sr-amt">${e.food>0?currFmt(e.food):'-'}</td>
         <td class="sr-amt">${e.phoneBill>0?currFmt(e.phoneBill):'-'}</td>
         <td class="sr-amt">${e.mobilePhone>0?currFmt(e.mobilePhone):'-'}</td>
         <td class="sr-amt">${e.other>0?currFmt(e.other):'-'}</td>
         <td class="sr-amt sr-gross">${currFmt(e.grossPay)}</td>
         <td class="sr-amt sr-ded">${d.pf>0?currFmt(d.pf):'-'}</td>
+        <td class="sr-amt sr-ded">${d.pt>0?currFmt(d.pt):'-'}</td>
         <td class="sr-amt sr-ded">${d.esi>0?currFmt(d.esi):'-'}</td>
         <td class="sr-amt sr-ded">${d.medicalInsurance>0?currFmt(d.medicalInsurance):'-'}</td>
+        <td class="sr-amt sr-ded">${d.tds>0?currFmt(d.tds):'-'}</td>
         <td class="sr-amt sr-ded">${d.advance>0?currFmt(d.advance):'-'}</td>
         <td class="sr-amt sr-ded">${d.totalDeductions>0?currFmt(d.totalDeductions):'-'}</td>
         <td class="sr-amt sr-net">${currFmt(c.netPay)}</td>
+        <td class="sr-proj">${emp.projectName||'-'}</td>
       </tr>`;
     }).join('');
 
     const totalRow = `<tr class="sr-total">
-      <td colspan="8" class="text-end fw-700 pe-2">TOTAL</td>
+      <td colspan="7" class="text-end fw-700 pe-2">TOTAL</td>
       <td class="sr-amt">${currFmt(totBasic)}</td>
       <td class="sr-amt">${currFmt(totHRA)}</td>
+      <td class="sr-amt">${currFmt(totConv)}</td>
       <td class="sr-amt">${currFmt(totFood)}</td>
       <td class="sr-amt">${currFmt(totPhone)}</td>
       <td class="sr-amt">${currFmt(totMobile)}</td>
       <td class="sr-amt">${currFmt(totOther)}</td>
       <td class="sr-amt sr-gross">${currFmt(totGross)}</td>
       <td class="sr-amt sr-ded">${currFmt(totPF)}</td>
+      <td class="sr-amt sr-ded">${currFmt(totPT)}</td>
       <td class="sr-amt sr-ded">${currFmt(totESI)}</td>
       <td class="sr-amt sr-ded">${currFmt(totMed)}</td>
+      <td class="sr-amt sr-ded">${currFmt(totTDS)}</td>
       <td class="sr-amt sr-ded">${currFmt(totAdv)}</td>
       <td class="sr-amt sr-ded">${currFmt(totDed)}</td>
       <td class="sr-amt sr-net">${currFmt(totNet)}</td>
+      <td></td>
     </tr>`;
 
     document.getElementById('salRegBody').innerHTML = rows + totalRow;
@@ -472,14 +487,14 @@ const PAY = {
     const yr = Number(document.getElementById('salRegYear')?.value  || new Date().getFullYear());
     const emps = DB.getEmployees().filter(e => e.status==='active');
     let csv = `Salary Register — ${monthName(mo)} ${yr} — Indus Projects Pvt. Ltd.\n`;
-    csv += 'Sr,Emp Code,Name,Designation,Department,Working Days,Present,Absent,Basic,HRA,Food Allow.,Phone Bill,Mobile Phone,Other Allow.,Gross Pay,PF,ESI,Med.Ins,Advance,Total Deductions,Net Pay\n';
+    csv += 'Sr,Emp Code,Name,Designation,Working Days,Present,Absent,Basic,HRA,Conveyance,Food Allow.,Phone Bill,Mobile Phone,Other Allow.,Gross Pay,PF,PT,ESI,Med.Ins,TDS,Advance,Total Deductions,Net Pay,Project Name\n';
     emps.forEach((emp,i) => {
       const c = this.calcPayroll(emp, yr, mo);
       const e = c.earnings, d = c.deductions;
-      csv += `${i+1},${emp.empCode},"${emp.firstName} ${emp.lastName}",${emp.designation||''},${emp.department||''},`;
+      csv += `${i+1},${emp.empCode},"${emp.firstName} ${emp.lastName}",${emp.designation||''},`;
       csv += `${c.workingDays},${c.presentDays},${c.absentDays},`;
-      csv += `${numFmt(e.basic)},${numFmt(e.hra)},${numFmt(e.food)},${numFmt(e.phoneBill)},${numFmt(e.mobilePhone)},${numFmt(e.other)},${numFmt(e.grossPay)},`;
-      csv += `${numFmt(d.pf)},${numFmt(d.esi)},${numFmt(d.medicalInsurance)},${numFmt(d.advance)},${numFmt(d.totalDeductions)},${numFmt(c.netPay)}\n`;
+      csv += `${numFmt(e.basic)},${numFmt(e.hra)},${numFmt(e.conveyance)},${numFmt(e.food)},${numFmt(e.phoneBill)},${numFmt(e.mobilePhone)},${numFmt(e.other)},${numFmt(e.grossPay)},`;
+      csv += `${numFmt(d.pf)},${numFmt(d.pt)},${numFmt(d.esi)},${numFmt(d.medicalInsurance)},${numFmt(d.tds)},${numFmt(d.advance)},${numFmt(d.totalDeductions)},${numFmt(c.netPay)},"${emp.projectName||''}"\n`;
     });
     const blob = new Blob(['﻿'+csv], {type:'text/csv;charset=utf-8'});
     const a = document.createElement('a'); a.href=URL.createObjectURL(blob);
