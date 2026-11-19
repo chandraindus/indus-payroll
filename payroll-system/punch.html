@@ -142,23 +142,29 @@ async function punch(empId, type) {
     }
   };
 
-  if (navigator.geolocation) {
-    navigator.geolocation.getCurrentPosition(
-      async pos => {
-        const { latitude: lat, longitude: lng } = pos.coords;
-        let address = `${lat.toFixed(5)}, ${lng.toFixed(5)}`;
-        try {
-          const geo = await fetch(`https://nominatim.openstreetmap.org/reverse?lat=${lat}&lon=${lng}&format=json`).then(r=>r.json());
-          address = geo.display_name || address;
-        } catch {}
-        await doSave(lat, lng, address);
-      },
-      async () => { await doSave('', '', 'Location not available'); },
-      { timeout: 8000, enableHighAccuracy: true }
-    );
-  } else {
-    await doSave('', '', 'GPS not supported');
+  if (!navigator.geolocation) {
+    showToast('❌ Your phone does not support GPS. Cannot punch.', '#dc3545');
+    btn.disabled = false;
+    btn.textContent = type==='in' ? '👆 Punch In' : '👋 Punch Out';
+    return;
   }
+  navigator.geolocation.getCurrentPosition(
+    async pos => {
+      const { latitude: lat, longitude: lng } = pos.coords;
+      let address = `${lat.toFixed(5)}, ${lng.toFixed(5)}`;
+      try {
+        const geo = await fetch(`https://nominatim.openstreetmap.org/reverse?lat=${lat}&lon=${lng}&format=json`).then(r=>r.json());
+        address = geo.display_name || address;
+      } catch {}
+      await doSave(lat, lng, address);
+    },
+    err => {
+      showToast('❌ Location required to punch attendance. Please allow location access.', '#dc3545');
+      btn.disabled = false;
+      btn.textContent = type==='in' ? '👆 Punch In' : '👋 Punch Out';
+    },
+    { timeout: 10000, enableHighAccuracy: true }
+  );
 }
 
 loadData();

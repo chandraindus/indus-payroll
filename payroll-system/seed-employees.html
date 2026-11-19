@@ -1,0 +1,76 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<title>Seed 10 Employees — Indus Projects</title>
+<style>
+body{font-family:Arial,sans-serif;padding:30px;max-width:600px;margin:0 auto;background:#f5f5f5}
+h2{color:#1a3c5e}
+.log{background:#fff;border:1px solid #ddd;border-radius:8px;padding:16px;margin-top:16px;min-height:200px;font-family:monospace;font-size:13px;line-height:1.8}
+.ok{color:#28a745}.err{color:#dc3545}.info{color:#007bff}
+button{background:#1a3c5e;color:#fff;padding:12px 28px;border:none;border-radius:6px;font-size:15px;cursor:pointer;margin-top:16px}
+button:disabled{opacity:0.5;cursor:not-allowed}
+</style>
+</head>
+<body>
+<h2>Create 10 Dummy Employees</h2>
+<p>Indus Projects Payroll — Click the button to create employees EMP003–EMP012 on the cloud server.</p>
+<button id="btn" onclick="seed()">Create 10 Employees Now</button>
+<div class="log" id="log">Ready. Press the button above to start.</div>
+
+<script>
+const BASE = 'https://indus-payroll-production.up.railway.app';
+const log = document.getElementById('log');
+
+function addLog(msg, cls) {
+  log.innerHTML += `<div class="${cls||''}">${msg}</div>`;
+  log.scrollTop = log.scrollHeight;
+}
+
+async function seed() {
+  document.getElementById('btn').disabled = true;
+  log.innerHTML = '';
+  addLog('Connecting to server...', 'info');
+
+  const employees = [
+    {id:"emp_003",empCode:"EMP003",firstName:"Rajesh",lastName:"Kumar",designation:"Sr. Engineer",department:"Projects",phone:"9876543201",dob:"1990-04-12",doj:"2023-01-15",status:"active"},
+    {id:"emp_004",empCode:"EMP004",firstName:"Priya",lastName:"Sharma",designation:"Accountant",department:"Accounts",phone:"9876543202",dob:"1992-08-20",doj:"2023-03-01",status:"active"},
+    {id:"emp_005",empCode:"EMP005",firstName:"Arun",lastName:"Reddy",designation:"Engineer",department:"Projects",phone:"9876543203",dob:"1993-11-05",doj:"2023-06-01",status:"active"},
+    {id:"emp_006",empCode:"EMP006",firstName:"Sunita",lastName:"Patel",designation:"Executive",department:"HR",phone:"9876543204",dob:"1991-02-28",doj:"2023-07-15",status:"active"},
+    {id:"emp_007",empCode:"EMP007",firstName:"Mohan",lastName:"Singh",designation:"Manager",department:"Operations",phone:"9876543205",dob:"1985-07-10",doj:"2022-01-01",status:"active"},
+    {id:"emp_008",empCode:"EMP008",firstName:"Kavitha",lastName:"Nair",designation:"Sr. Executive",department:"Administration",phone:"9876543206",dob:"1989-09-15",doj:"2022-06-01",status:"active"},
+    {id:"emp_009",empCode:"EMP009",firstName:"Suresh",lastName:"Babu",designation:"Supervisor",department:"Operations",phone:"9876543207",dob:"1988-03-22",doj:"2022-09-01",status:"active"},
+    {id:"emp_010",empCode:"EMP010",firstName:"Anitha",lastName:"Rao",designation:"Sr. Accountant",department:"Accounts",phone:"9876543208",dob:"1987-12-01",doj:"2021-04-01",status:"active"},
+    {id:"emp_011",empCode:"EMP011",firstName:"Ramesh",lastName:"Verma",designation:"Jr. Executive",department:"Procurement",phone:"9876543209",dob:"1995-06-18",doj:"2024-02-01",status:"active"},
+    {id:"emp_012",empCode:"EMP012",firstName:"Deepa",lastName:"Krishnan",designation:"Executive",department:"IT",phone:"9876543210",dob:"1994-10-30",doj:"2024-04-01",status:"active"}
+  ];
+
+  let ok = 0, fail = 0;
+  for (const emp of employees) {
+    try {
+      const r = await fetch(`${BASE}/api/employees`, {
+        method: 'POST',
+        headers: {'Content-Type':'application/json'},
+        body: JSON.stringify(emp)
+      });
+      const d = await r.json();
+      if (d.ok) {
+        addLog(`✓ ${emp.empCode}  ${emp.firstName} ${emp.lastName}`, 'ok');
+        ok++;
+      } else {
+        addLog(`✗ ${emp.empCode}  Error: ${JSON.stringify(d)}`, 'err');
+        fail++;
+      }
+    } catch(e) {
+      addLog(`✗ ${emp.empCode}  Connection error: ${e.message}`, 'err');
+      fail++;
+    }
+  }
+  addLog('', '');
+  addLog(`Done: ${ok} created, ${fail} failed.`, ok===10?'ok':'err');
+  if (ok > 0) addLog('You can now close this page.', 'info');
+  document.getElementById('btn').disabled = false;
+}
+</script>
+</body>
+</html>
