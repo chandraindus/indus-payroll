@@ -354,6 +354,7 @@
     <li class="nav-item"><a class="nav-link" data-bs-toggle="tab" href="#regBonus" onclick="setTimeout(()=>PAY.renderBonusRegister(),80)">Bonus Register</a></li>
     <li class="nav-item"><a class="nav-link" data-bs-toggle="tab" href="#regLTA" onclick="setTimeout(()=>PAY.renderLTARegister(),80)">LTA Register</a></li>
     <li class="nav-item"><a class="nav-link" data-bs-toggle="tab" href="#regEncash" onclick="setTimeout(()=>LEAVES.renderEncashmentRegister2(),80)">Leave Encashment</a></li>
+    <li class="nav-item"><a class="nav-link" data-bs-toggle="tab" href="#regTiming" onclick="setTimeout(()=>ATT.renderTimingRegister(),80)"><i class="fas fa-clock me-1"></i>Timing Register</a></li>
   </ul>
   <div class="tab-content">
 
@@ -473,6 +474,52 @@
           <table class="table table-hover mb-0">
             <thead><tr><th>Emp Code</th><th>Name</th><th>Designation</th><th>Department</th><th>Date</th><th>Leave Type</th><th>Days</th><th>Per Day Value</th><th>Amount</th><th>Remarks</th><th>Status</th></tr></thead>
             <tbody id="encashRegBody2"></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <!-- Timing Register -->
+    <div class="tab-pane fade" id="regTiming">
+      <div class="d-flex justify-content-between align-items-center mb-3 flex-wrap gap-2">
+        <div class="d-flex gap-2 align-items-center flex-wrap">
+          <label class="form-label mb-0 fw-500">Month:</label>
+          <select id="timRegMonth" class="form-select form-select-sm" style="width:130px" onchange="ATT.renderTimingRegister()">
+            <option value="1">January</option><option value="2">February</option><option value="3">March</option>
+            <option value="4">April</option><option value="5">May</option><option value="6">June</option>
+            <option value="7">July</option><option value="8">August</option><option value="9">September</option>
+            <option value="10">October</option><option value="11">November</option><option value="12">December</option>
+          </select>
+          <select id="timRegYear" class="form-select form-select-sm" style="width:90px" onchange="ATT.renderTimingRegister()">
+            <option value="2025">2025</option><option value="2026" selected>2026</option><option value="2027">2027</option>
+          </select>
+          <select id="timRegEmp" class="form-select form-select-sm" style="width:200px" onchange="ATT.renderTimingRegister()">
+            <option value="">All Employees</option>
+          </select>
+          <span class="fw-600 text-primary" id="timRegLabel"></span>
+        </div>
+        <button class="btn btn-outline-success btn-sm" onclick="ATT.exportTimingRegister()"><i class="fas fa-download me-1"></i>Export CSV</button>
+      </div>
+      <div class="card">
+        <div class="table-responsive">
+          <table class="table table-hover table-sm mb-0 fs-13">
+            <thead class="table-dark">
+              <tr>
+                <th>Date</th>
+                <th>Code</th>
+                <th>Name</th>
+                <th>Designation</th>
+                <th class="text-center">Punch In</th>
+                <th style="min-width:200px">In Location</th>
+                <th class="text-center">Punch Out</th>
+                <th style="min-width:200px">Out Location</th>
+                <th class="text-center">Hours</th>
+                <th class="text-center">Status</th>
+              </tr>
+            </thead>
+            <tbody id="timRegBody">
+              <tr><td colspan="10" class="text-center text-muted py-4">Select month and click Timing Register tab</td></tr>
+            </tbody>
           </table>
         </div>
       </div>
