@@ -220,20 +220,24 @@ const ATT = {
       APP.showToast(`Punch ${type==='in'?'In':'Out'} recorded at ${timeNow}`, 'success');
     };
 
-    if (navigator.geolocation) {
-      navigator.geolocation.getCurrentPosition(
-        pos => {
-          const lat = pos.coords.latitude.toFixed(6);
-          const lng = pos.coords.longitude.toFixed(6);
-          fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lng}`)
-            .then(r=>r.json()).then(d => doSave(lat, lng, d.display_name||`${lat},${lng}`, 'phone'))
-            .catch(() => doSave(lat, lng, `${lat},${lng}`, 'phone'));
-        },
-        () => { doSave('','','', 'phone'); btn.disabled=false; btn.textContent = type==='in'?'Punch In':'Punch Out'; }
-      );
-    } else {
-      doSave('','','','manual');
+    if (!navigator.geolocation) {
+      btn.disabled = false; btn.innerHTML = type==='in'?'Punch In':'Punch Out';
+      APP.showToast('GPS not supported on this device.', 'danger'); return;
     }
+    navigator.geolocation.getCurrentPosition(
+      pos => {
+        const lat = pos.coords.latitude.toFixed(6);
+        const lng = pos.coords.longitude.toFixed(6);
+        fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lng}`)
+          .then(r=>r.json()).then(d => doSave(lat, lng, d.display_name||`${lat},${lng}`, 'phone'))
+          .catch(() => doSave(lat, lng, `${lat},${lng}`, 'phone'));
+      },
+      () => {
+        btn.disabled = false; btn.innerHTML = type==='in'?'Punch In':'Punch Out';
+        APP.showToast('Location access denied. Please allow location to punch attendance.', 'danger');
+      },
+      { enableHighAccuracy: true, timeout: 15000 }
+    );
   },
 
   exportMonthly() {
