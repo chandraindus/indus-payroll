@@ -403,20 +403,20 @@
               <th rowspan="2">Emp Code</th>
               <th rowspan="2">Name</th>
               <th rowspan="2">Designation</th>
-              <th rowspan="2">Department</th>
               <th colspan="3">Attendance</th>
-              <th colspan="6">Earnings</th>
-              <th colspan="5">Deductions</th>
+              <th colspan="7">Earnings</th>
+              <th colspan="6">Deductions</th>
               <th rowspan="2" class="sr-net">Net Pay</th>
+              <th rowspan="2">Project</th>
             </tr>
             <tr>
               <th>W.Days</th><th>Present</th><th>Absent</th>
-              <th>Basic</th><th>HRA</th><th>Food</th><th>Phone Bill</th><th>Mobile</th><th>Other</th><th class="sr-gross">Gross</th>
-              <th>PF</th><th>ESI</th><th>Med.Ins</th><th>Advance</th><th>Total Ded.</th>
+              <th>Basic</th><th>HRA</th><th>Conv.</th><th>Food</th><th>Phone Bill</th><th>Mobile</th><th>Other</th><th class="sr-gross">Gross</th>
+              <th>PF</th><th>PT</th><th>ESI</th><th>Med.Ins</th><th>TDS</th><th>Advance</th><th>Total Ded.</th>
             </tr>
           </thead>
           <tbody id="salRegBody">
-            <tr><td colspan="21" class="text-center text-muted py-4">Loading...</td></tr>
+            <tr><td colspan="25" class="text-center text-muted py-4">Loading...</td></tr>
           </tbody>
         </table>
       </div>
@@ -606,6 +606,7 @@
         <li class="nav-item"><a class="nav-link" data-bs-toggle="tab" href="#ef2">Employment</a></li>
         <li class="nav-item"><a class="nav-link" data-bs-toggle="tab" href="#ef3">Address &amp; Bank</a></li>
         <li class="nav-item"><a class="nav-link" data-bs-toggle="tab" href="#ef4">Salary &amp; Benefits</a></li>
+        <li class="nav-item"><a class="nav-link" data-bs-toggle="tab" href="#ef5"><i class="fas fa-file-alt me-1"></i>Documents</a></li>
       </ul>
       <div class="tab-content">
         <!-- Tab 1: Personal -->
@@ -633,6 +634,7 @@
         <div class="tab-pane fade" id="ef2"><div class="row g-3">
           <div class="col-md-3"><label class="form-label">Joining Date *</label><input type="date" id="emp_joiningDate" class="form-control" required></div>
           <div class="col-md-3"><label class="form-label">Confirmation Date</label><input type="date" id="emp_confirmationDate" class="form-control"></div>
+          <div class="col-md-6"><label class="form-label">Project / Site Name</label><input type="text" id="emp_projectName" class="form-control" placeholder="e.g. DRL-SDC Expansion, Head Office"></div>
           <div class="col-md-3"><label class="form-label">Employment Type</label>
             <select id="emp_employmentType" class="form-select"><option value="">Select</option><option>Permanent</option><option>Contract</option><option>Probation</option><option>Part-Time</option><option>Intern</option></select></div>
           <div class="col-md-3"><label class="form-label">Grade</label><input type="text" id="emp_grade" class="form-control" placeholder="A/B/C or Senior/Junior"></div>
@@ -692,6 +694,12 @@
             <input type="number" id="emp_mobilePhoneAmount" class="form-control" placeholder="Mobile allowance/month" min="0">
           </div>
           <div class="col-md-3"><label class="form-label">Other Allowance/month</label><input type="number" id="emp_otherAllowance" class="form-control" min="0"></div>
+          <div class="col-md-3">
+            <div class="form-check form-switch mb-1"><input type="checkbox" id="emp_hasConveyance" class="form-check-input" role="switch"><label class="form-check-label" for="emp_hasConveyance">Conveyance Allowance</label></div>
+            <input type="number" id="emp_conveyanceAmount" class="form-control" placeholder="₹1600/month" min="0">
+          </div>
+          <div class="col-12"><div class="section-title">Tax &amp; Other Deductions</div></div>
+          <div class="col-md-4"><label class="form-label">TDS / Income Tax per month</label><input type="number" id="emp_tdsAmount" class="form-control" placeholder="0" min="0"></div>
           <div class="col-12"><div class="section-title">Bonus &amp; LTA</div></div>
           <div class="col-md-4">
             <div class="form-check form-switch mb-1"><input type="checkbox" id="emp_hasBonus" class="form-check-input" role="switch"><label class="form-check-label" for="emp_hasBonus">Eligible for Bonus</label></div>
@@ -709,9 +717,72 @@
             <select id="emp_pfRate" class="form-select"><option value="12">12% of Basic (Standard)</option><option value="25">25% of Basic</option></select>
           </div>
         </div></div>
+        <!-- Tab 5: Documents -->
+        <div class="tab-pane fade" id="ef5"><div class="row g-3">
+          <div class="col-12"><div class="section-title"><i class="fas fa-camera me-1"></i>Employee Photo</div></div>
+          <div class="col-md-4">
+            <input type="file" id="emp_photoFile" class="form-control" accept="image/*" onchange="EMP.previewDoc('emp_photoFile','emp_photoPreview','photo')">
+            <div id="emp_photoPreview" class="mt-2"></div>
+          </div>
+          <div class="col-12"><div class="section-title"><i class="fas fa-file-contract me-1"></i>Appointment Letter</div></div>
+          <div class="col-md-6">
+            <small class="text-muted">PDF or image, max 5 MB</small>
+            <input type="file" id="emp_apptLetterFile" class="form-control mt-1" accept="image/*,application/pdf" onchange="EMP.previewDoc('emp_apptLetterFile','emp_apptLetterPreview','doc')">
+            <div id="emp_apptLetterPreview" class="mt-2"></div>
+          </div>
+          <div class="col-12"><div class="section-title"><i class="fas fa-certificate me-1"></i>Certificates &amp; Documents</div></div>
+          <div class="col-12" id="emp_certsContainer"></div>
+          <div class="col-12">
+            <button type="button" class="btn btn-sm btn-outline-primary" onclick="EMP.addCertRow()"><i class="fas fa-plus me-1"></i>Add Certificate / Document</button>
+          </div>
+        </div></div>
       </div>
     </form></div>
     <div class="modal-footer"><button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button><button type="button" class="btn btn-primary" onclick="EMP.save()"><i class="fas fa-save me-1"></i>Save Employee</button></div>
+  </div></div>
+</div>
+
+<!-- Salary Revision Modal -->
+<div class="modal fade" id="salRevModal" tabindex="-1">
+  <div class="modal-dialog modal-lg"><div class="modal-content">
+    <div class="modal-header"><h5 class="modal-title"><i class="fas fa-chart-line me-2 text-success"></i>Salary Revision</h5><button type="button" class="btn-close" data-bs-dismiss="modal"></button></div>
+    <div class="modal-body">
+      <form id="salRevForm">
+        <input type="hidden" id="salrev_empId">
+        <div class="p-2 bg-light rounded mb-3 fs-13" id="salrev_empInfo"></div>
+        <div class="row g-3">
+          <div class="col-md-4"><label class="form-label">Effective Date *</label><input type="date" id="salrev_effectiveDate" class="form-control"></div>
+          <div class="col-md-4"><label class="form-label">Revision Type</label>
+            <select id="salrev_type" class="form-select"><option>Annual Increment</option><option>Promotion</option><option>Merit</option><option>Restructure</option><option>Correction</option><option>Other</option></select></div>
+          <div class="col-md-4"><label class="form-label">New Grade</label><input type="text" id="salrev_grade" class="form-control" placeholder="A / Senior / L3"></div>
+          <div class="col-md-4"><label class="form-label">Previous Basic</label><input type="number" id="salrev_prevBasic" class="form-control" readonly></div>
+          <div class="col-md-4"><label class="form-label">New Basic *</label><input type="number" id="salrev_newBasic" class="form-control" oninput="EMP.calcRevision()"></div>
+          <div class="col-md-4"><label class="form-label">Increment / (Decrement)</label><input type="text" id="salrev_increment" class="form-control" readonly></div>
+          <div class="col-md-6"><label class="form-label">Performance Rating</label>
+            <select id="salrev_rating" class="form-select">
+              <option value="">Not Rated</option>
+              <option value="5">★★★★★ Outstanding (5)</option>
+              <option value="4">★★★★ Exceeds Expectations (4)</option>
+              <option value="3">★★★ Meets Expectations (3)</option>
+              <option value="2">★★ Needs Improvement (2)</option>
+              <option value="1">★ Unsatisfactory (1)</option>
+            </select></div>
+          <div class="col-md-6"><label class="form-label">Approved By</label><input type="text" id="salrev_approvedBy" class="form-control"></div>
+          <div class="col-md-6"><label class="form-label">Reason</label><input type="text" id="salrev_reason" class="form-control" placeholder="Annual review, Promotion, etc."></div>
+          <div class="col-md-6"><label class="form-label">Remarks</label><input type="text" id="salrev_remarks" class="form-control"></div>
+        </div>
+      </form>
+      <hr>
+      <h6 class="mb-2">Revision History</h6>
+      <div class="table-responsive"><table class="table table-sm table-bordered fs-12">
+        <thead class="table-dark"><tr><th>Effective Date</th><th>Prev Basic</th><th>New Basic</th><th>Increment</th><th>%</th><th>Type</th><th>Rating</th><th>Grade</th><th>Approved By</th></tr></thead>
+        <tbody id="salrev_histBody"><tr><td colspan="9" class="text-center text-muted py-2">No revisions yet</td></tr></tbody>
+      </table></div>
+    </div>
+    <div class="modal-footer">
+      <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+      <button type="button" class="btn btn-success" onclick="EMP.saveSalaryRevision()"><i class="fas fa-check me-1"></i>Save &amp; Update Salary</button>
+    </div>
   </div></div>
 </div>
 
