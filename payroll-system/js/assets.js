@@ -136,7 +136,39 @@ const ASSETS = {
     new bootstrap.Modal(document.getElementById('assetAssignModal')).show();
   },
 
-  saveAssignment() {
+  previewReceipt(inputId, previewId) {
+    const file = document.getElementById(inputId)?.files?.[0];
+    const preview = document.getElementById(previewId);
+    if (!preview) return;
+    if (!file) { preview.innerHTML = ''; return; }
+    if (file.size > 2 * 1024 * 1024) {
+      preview.innerHTML = '<small class="text-danger">File too large (max 2 MB)</small>';
+      document.getElementById(inputId).value = '';
+      return;
+    }
+    const reader = new FileReader();
+    reader.onload = e => {
+      if (file.type.startsWith('image/')) {
+        preview.innerHTML = `<img src="${e.target.result}" style="max-height:80px;max-width:100%;border-radius:4px;border:1px solid #dee2e6">`;
+      } else {
+        preview.innerHTML = `<small class="text-success"><i class="fas fa-file-pdf me-1"></i>${file.name}</small>`;
+      }
+    };
+    reader.readAsDataURL(file);
+  },
+
+  _readFileAsBase64(inputId) {
+    return new Promise(resolve => {
+      const file = document.getElementById(inputId)?.files?.[0];
+      if (!file) { resolve(null); return; }
+      const reader = new FileReader();
+      reader.onload = e => resolve(e.target.result);
+      reader.onerror = () => resolve(null);
+      reader.readAsDataURL(file);
+    });
+  },
+
+  async saveAssignment() {
     const g = id => document.getElementById(id)?.value?.trim()||'';
     const mode = g('assetAssignMode');
     const asgnId = g('asgn_id');
@@ -152,11 +184,14 @@ const ASSETS = {
         asgn.returnDate = g('asgn_returnDate') || today();
         asgn.conditionOnReturn = g('asgn_conditionOnReturn') || 'good';
         asgn.returnRemarks = g('asgn_returnRemarks');
+        const receiptOut = await this._readFileAsBase64('asgn_receiptOut');
+        if (receiptOut) asgn.receiptOut = receiptOut;
         DB.upsertAssetAssignment(asgn);
       }
       const asset = DB.getAsset(assetId);
       if (asset) { asset.status = 'available'; DB.upsertAsset(asset); }
     } else {
+      const receiptIn = await this._readFileAsBase64('asgn_receiptIn');
       const asgn = {
         id: uuid(), assetId, empId,
         assignedDate: g('asgn_assignedDate') || today(),
@@ -165,6 +200,7 @@ const ASSETS = {
         remarks: g('asgn_remarks'),
         status: 'active'
       };
+      if (receiptIn) asgn.receiptIn = receiptIn;
       DB.upsertAssetAssignment(asgn);
       const asset = DB.getAsset(assetId);
       if (asset) { asset.status = 'assigned'; DB.upsertAsset(asset); }
@@ -181,17 +217,25 @@ const ASSETS = {
     document.getElementById('assetHistoryBody').innerHTML = history.length
       ? history.map(h => {
           const emp = DB.getEmployee(h.empId);
+          const receiptInHtml = h.receiptIn
+            ? `<a href="${h.receiptIn}" target="_blank" class="btn btn-xs btn-outline-primary" style="font-size:11px;padding:2px 6px"><i class="fas fa-file me-1"></i>View</a>`
+            : '-';
+          const receiptOutHtml = h.receiptOut
+            ? `<a href="${h.receiptOut}" target="_blank" class="btn btn-xs btn-outline-warning" style="font-size:11px;padding:2px 6px"><i class="fas fa-file me-1"></i>View</a>`
+            : '-';
           return `<tr>
             <td>${emp?`${emp.empCode} - ${emp.firstName} ${emp.lastName}`:'Unknown'}</td>
             <td>${fmtDate(h.assignedDate)}</td>
             <td>${h.conditionOnAssign||'-'}</td>
+            <td>${receiptInHtml}</td>
             <td>${h.returnDate?fmtDate(h.returnDate):'-'}</td>
             <td>${h.conditionOnReturn||'-'}</td>
+            <td>${receiptOutHtml}</td>
             <td><span class="badge bg-${h.status==='active'?'primary':'secondary'}">${h.status}</span></td>
             <td>${h.remarks||'-'}</td>
           </tr>`;
         }).join('')
-      : '<tr><td colspan="7" class="text-center text-muted">No history</td></tr>';
+      : '<tr><td colspan="9" class="text-center text-muted">No history</td></tr>';
     new bootstrap.Modal(document.getElementById('assetHistoryModal')).show();
   },
 
@@ -281,16 +325,16 @@ const ASSETS = {
           </table>
         </div>` : ''}
 
-        ${history.length ? `
-        <div class="px-3 pt-2 pb-1 ${current.length?'border-top':''}">
+        <div class="px-3 pt-2 pb-1 ${current.length ? 'border-top' : ''}">
           <small class="text-muted fw-600"><i class="fas fa-history me-1"></i>Past Assignments</small>
         </div>
+        ${history.length ? `
         <div class="table-responsive">
           <table class="table table-sm mb-0 text-muted">
             <thead class="table-light"><tr>
               <th>Asset Code</th><th>Name</th><th>Category</th><th>Serial No.</th>
-              <th>Assigned Date</th><th>Condition (In)</th>
-              <th>Returned Date</th><th>Condition (Out)</th><th>Remarks</th>
+              <th>Assigned Date</th><th>Condition (In)</th><th>Receipt</th>
+              <th>Returned Date</th><th>Condition (Out)</th><th>Return Receipt</th><th>Remarks</th>
             </tr></thead>
             <tbody>
               ${history.map(a => `<tr>
@@ -300,15 +344,17 @@ const ASSETS = {
                 <td>${a.serialNumber||'-'}</td>
                 <td>${fmtDate(a.assignment.assignedDate)}</td>
                 <td>${condBadge(a.assignment.conditionOnAssign)}</td>
+                <td>${a.assignment.receiptIn?`<a href="${a.assignment.receiptIn}" target="_blank" style="font-size:11px"><i class="fas fa-file"></i> View</a>`:'-'}</td>
                 <td>${a.assignment.returnDate ? fmtDate(a.assignment.returnDate) : '-'}</td>
                 <td>${a.assignment.conditionOnReturn ? condBadge(a.assignment.conditionOnReturn) : '-'}</td>
+                <td>${a.assignment.receiptOut?`<a href="${a.assignment.receiptOut}" target="_blank" style="font-size:11px"><i class="fas fa-file"></i> View</a>`:'-'}</td>
                 <td><small>${a.assignment.returnRemarks||a.assignment.remarks||'-'}</small></td>
               </tr>`).join('')}
             </tbody>
           </table>
-        </div>` : ''}
+        </div>` : `<div class="px-3 pb-2 text-muted fs-13">No past assignments</div>`}
 
-        ${!current.length && !history.length ? `<div class="card-body text-muted fs-13 py-2">No asset history</div>` : ''}
+        ${!current.length && !history.length ? '' : ''}
       </div>`).join('');
   },
 
