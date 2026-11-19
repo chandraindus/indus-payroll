@@ -761,12 +761,22 @@
         <div class="mb-3"><label class="form-label">Condition</label>
           <select id="asgn_conditionOnAssign" class="form-select"><option value="good">Good</option><option value="fair">Fair</option><option value="damaged">Damaged</option></select></div>
         <div class="mb-3"><label class="form-label">Remarks</label><input type="text" id="asgn_remarks" class="form-control"></div>
+        <div class="mb-3">
+          <label class="form-label"><i class="fas fa-file-upload me-1 text-primary"></i>Receiving Receipt <small class="text-muted">(photo/PDF, max 2 MB)</small></label>
+          <input type="file" id="asgn_receiptIn" class="form-control" accept="image/*,application/pdf" onchange="ASSETS.previewReceipt('asgn_receiptIn','asgn_receiptInPreview')">
+          <div id="asgn_receiptInPreview" class="mt-2"></div>
+        </div>
       </div>
       <div id="assetReturnFields" style="display:none">
         <div class="mb-3"><label class="form-label">Return Date</label><input type="date" id="asgn_returnDate" class="form-control"></div>
         <div class="mb-3"><label class="form-label">Condition on Return</label>
           <select id="asgn_conditionOnReturn" class="form-select"><option value="good">Good</option><option value="fair">Fair</option><option value="damaged">Damaged</option></select></div>
         <div class="mb-3"><label class="form-label">Return Remarks</label><input type="text" id="asgn_returnRemarks" class="form-control"></div>
+        <div class="mb-3">
+          <label class="form-label"><i class="fas fa-file-upload me-1 text-warning"></i>Return Receipt <small class="text-muted">(photo/PDF, max 2 MB)</small></label>
+          <input type="file" id="asgn_receiptOut" class="form-control" accept="image/*,application/pdf" onchange="ASSETS.previewReceipt('asgn_receiptOut','asgn_receiptOutPreview')">
+          <div id="asgn_receiptOutPreview" class="mt-2"></div>
+        </div>
       </div>
     </form></div>
     <div class="modal-footer"><button class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button><button class="btn btn-primary" onclick="ASSETS.saveAssignment()"><i class="fas fa-save me-1"></i>Save</button></div>
@@ -779,7 +789,7 @@
     <div class="modal-header"><h5 class="modal-title" id="assetHistoryTitle">Asset History</h5><button type="button" class="btn-close" data-bs-dismiss="modal"></button></div>
     <div class="modal-body">
       <div class="table-responsive"><table class="table table-sm">
-        <thead><tr><th>Employee</th><th>Assigned</th><th>Condition (In)</th><th>Returned</th><th>Condition (Out)</th><th>Status</th><th>Remarks</th></tr></thead>
+        <thead><tr><th>Employee</th><th>Assigned</th><th>Condition (In)</th><th>Receipt</th><th>Returned</th><th>Condition (Out)</th><th>Return Receipt</th><th>Status</th><th>Remarks</th></tr></thead>
         <tbody id="assetHistoryBody"></tbody>
       </table></div>
     </div>
