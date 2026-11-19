@@ -1,0 +1,927 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<title>Indus Employee Portal</title>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
+<style>
+:root {
+  --primary: #1a3c5e;
+  --primary-light: #2d6fad;
+  --accent: #27ae60;
+  --danger: #e74c3c;
+  --warn: #f39c12;
+  --bg: #f0f4f8;
+  --card: #ffffff;
+  --text: #1a1a2e;
+  --muted: #6c757d;
+  --border: #e2e8f0;
+  --radius: 14px;
+  --shadow: 0 2px 12px rgba(26,60,94,.12);
+}
+* { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+body { font-family: -apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif; background: var(--bg); color: var(--text); height: 100dvh; overflow: hidden; }
+
+/* ── LOGIN ─────────────────────────────────────────── */
+#loginScreen {
+  min-height: 100dvh; display: flex; flex-direction: column;
+  align-items: center; justify-content: center;
+  background: linear-gradient(160deg, #1a3c5e 0%, #2d6fad 60%, #27ae60 100%);
+  padding: 24px;
+}
+.login-card { background: #fff; border-radius: 20px; padding: 32px 28px; width: 100%; max-width: 380px; box-shadow: 0 20px 60px rgba(0,0,0,.25); }
+.login-logo { text-align: center; margin-bottom: 24px; }
+.login-logo .logo-icon { width: 68px; height: 68px; background: var(--primary); border-radius: 18px; display: inline-flex; align-items: center; justify-content: center; margin-bottom: 10px; }
+.login-logo h1 { font-size: 20px; font-weight: 700; color: var(--primary); }
+.login-logo p { font-size: 13px; color: var(--muted); margin-top: 2px; }
+.form-group { margin-bottom: 16px; }
+.form-group label { display: block; font-size: 12px; font-weight: 600; color: var(--muted); text-transform: uppercase; letter-spacing: .5px; margin-bottom: 6px; }
+.form-group input { width: 100%; padding: 13px 16px; border: 1.5px solid var(--border); border-radius: 10px; font-size: 15px; outline: none; transition: border-color .2s; background: #f8fafc; }
+.form-group input:focus { border-color: var(--primary-light); background: #fff; }
+.btn-login { width: 100%; padding: 14px; background: var(--primary); color: #fff; border: none; border-radius: 10px; font-size: 16px; font-weight: 700; cursor: pointer; transition: background .2s; }
+.btn-login:active { background: #0f2540; }
+.login-hint { text-align: center; font-size: 12px; color: var(--muted); margin-top: 16px; }
+.error-msg { background: #fde8e8; color: var(--danger); border-radius: 8px; padding: 10px 14px; font-size: 13px; margin-bottom: 14px; display: none; }
+
+/* ── APP SHELL ─────────────────────────────────────── */
+#appShell { display: none; height: 100dvh; flex-direction: column; }
+
+/* Header */
+.app-header {
+  background: var(--primary);
+  color: #fff;
+  padding: 12px 16px;
+  display: flex; align-items: center; justify-content: space-between;
+  flex-shrink: 0;
+  padding-top: max(12px, env(safe-area-inset-top));
+}
+.app-header .emp-info h2 { font-size: 15px; font-weight: 700; }
+.app-header .emp-info p { font-size: 11px; opacity: .75; }
+.btn-icon { background: none; border: none; color: #fff; font-size: 18px; cursor: pointer; padding: 6px; }
+
+/* Page content */
+.pages { flex: 1; overflow-y: auto; overflow-x: hidden; -webkit-overflow-scrolling: touch; }
+.page { display: none; padding: 16px; padding-bottom: 90px; min-height: 100%; }
+.page.active { display: block; }
+
+/* Bottom Nav */
+.bottom-nav {
+  background: #fff;
+  border-top: 1px solid var(--border);
+  display: flex;
+  flex-shrink: 0;
+  padding-bottom: max(8px, env(safe-area-inset-bottom));
+  box-shadow: 0 -4px 16px rgba(0,0,0,.08);
+}
+.nav-btn { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 8px 4px; background: none; border: none; cursor: pointer; color: var(--muted); font-size: 11px; gap: 3px; transition: color .15s; }
+.nav-btn i { font-size: 20px; }
+.nav-btn.active { color: var(--primary); }
+.nav-btn.active i { font-weight: 900; }
+
+/* ── CARDS & COMPONENTS ───────────────────────────── */
+.card { background: var(--card); border-radius: var(--radius); box-shadow: var(--shadow); margin-bottom: 14px; overflow: hidden; }
+.card-header { padding: 14px 16px; border-bottom: 1px solid var(--border); font-weight: 700; font-size: 14px; display: flex; align-items: center; gap: 8px; }
+.card-body { padding: 16px; }
+.section-title { font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: .6px; color: var(--muted); margin-bottom: 10px; }
+
+/* Punch buttons */
+.punch-row { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+.punch-btn {
+  padding: 18px 10px; border: none; border-radius: 12px;
+  font-size: 15px; font-weight: 700; cursor: pointer;
+  display: flex; flex-direction: column; align-items: center; gap: 6px;
+  transition: transform .1s, box-shadow .1s; color: #fff;
+}
+.punch-btn:active:not(:disabled) { transform: scale(.97); }
+.punch-btn.in { background: linear-gradient(135deg, #27ae60, #1e8449); box-shadow: 0 4px 16px rgba(39,174,96,.35); }
+.punch-btn.out { background: linear-gradient(135deg, #2d6fad, #1a3c5e); box-shadow: 0 4px 16px rgba(29,110,173,.35); }
+.punch-btn:disabled { opacity: .45; cursor: not-allowed; }
+.punch-btn i { font-size: 24px; }
+.punch-btn .time-label { font-size: 12px; opacity: .85; font-weight: 400; }
+
+/* Status pills */
+.status-pill { display: inline-flex; align-items: center; gap: 5px; padding: 4px 10px; border-radius: 20px; font-size: 12px; font-weight: 600; }
+.pill-green  { background: #d4edda; color: #155724; }
+.pill-blue   { background: #cce5ff; color: #004085; }
+.pill-yellow { background: #fff3cd; color: #856404; }
+.pill-red    { background: #f8d7da; color: #721c24; }
+.pill-gray   { background: #e2e8f0; color: #555; }
+
+/* Stats grid */
+.stats-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; }
+.stat-box { background: var(--card); border-radius: 12px; padding: 14px 10px; text-align: center; box-shadow: var(--shadow); }
+.stat-box .n { font-size: 24px; font-weight: 800; color: var(--primary); line-height: 1; }
+.stat-box .l { font-size: 11px; color: var(--muted); margin-top: 4px; }
+
+/* List items */
+.list-item { padding: 13px 0; border-bottom: 1px solid var(--border); display: flex; align-items: flex-start; gap: 10px; }
+.list-item:last-child { border-bottom: none; }
+.list-item .li-icon { width: 36px; height: 36px; border-radius: 10px; display: flex; align-items: center; justify-content: center; font-size: 15px; flex-shrink: 0; }
+.list-item .li-body { flex: 1; min-width: 0; }
+.list-item .li-title { font-size: 14px; font-weight: 600; }
+.list-item .li-sub { font-size: 12px; color: var(--muted); margin-top: 2px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.list-item .li-right { text-align: right; flex-shrink: 0; }
+
+/* Form elements */
+.f-group { margin-bottom: 14px; }
+.f-label { font-size: 12px; font-weight: 600; color: var(--muted); text-transform: uppercase; letter-spacing: .4px; margin-bottom: 5px; display: block; }
+.f-input { width: 100%; padding: 11px 14px; border: 1.5px solid var(--border); border-radius: 10px; font-size: 14px; outline: none; background: #f8fafc; }
+.f-input:focus { border-color: var(--primary-light); background: #fff; }
+select.f-input { appearance: none; background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3e%3cpath fill='%236c757d' d='M7.247 11.14L2.451 5.658C1.885 5.013 2.345 4 3.204 4h9.592a1 1 0 0 1 .753 1.659l-4.796 5.48a1 1 0 0 1-1.506 0z'/%3e%3c/svg%3e"); background-repeat: no-repeat; background-position: right 12px center; background-size: 12px; padding-right: 32px; }
+.btn-primary { width: 100%; padding: 13px; background: var(--primary); color: #fff; border: none; border-radius: 10px; font-size: 15px; font-weight: 700; cursor: pointer; }
+.btn-primary:active { background: #0f2540; }
+.btn-primary:disabled { opacity: .5; cursor: not-allowed; }
+.btn-outline { width: 100%; padding: 11px; background: transparent; color: var(--primary); border: 1.5px solid var(--primary); border-radius: 10px; font-size: 14px; font-weight: 600; cursor: pointer; }
+
+/* Toast */
+#toast { position: fixed; bottom: 90px; left: 50%; transform: translateX(-50%) translateY(20px); background: #222; color: #fff; padding: 10px 20px; border-radius: 24px; font-size: 13px; font-weight: 500; opacity: 0; transition: all .25s; pointer-events: none; z-index: 9999; white-space: nowrap; }
+#toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+
+/* Loading overlay */
+#loadingOverlay { position: fixed; inset: 0; background: rgba(255,255,255,.85); display: flex; align-items: center; justify-content: center; z-index: 9999; display: none; }
+.spinner { width: 40px; height: 40px; border: 3px solid var(--border); border-top-color: var(--primary); border-radius: 50%; animation: spin .7s linear infinite; }
+@keyframes spin { to { transform: rotate(360deg); } }
+
+/* Date badge */
+.date-badge { background: var(--primary); color: #fff; border-radius: 10px; padding: 10px 16px; display: flex; align-items: center; justify-content: space-between; margin-bottom: 14px; }
+.date-badge .day { font-size: 13px; opacity: .8; }
+.date-badge .date { font-size: 16px; font-weight: 700; }
+
+/* Location chip */
+.loc-chip { display: inline-flex; align-items: center; gap: 4px; font-size: 11px; color: var(--primary-light); background: #e8f0fe; padding: 2px 8px; border-radius: 10px; cursor: pointer; text-decoration: none; }
+
+/* Leave balance bar */
+.leave-bar { margin-bottom: 10px; }
+.leave-bar .lb-row { display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px; font-size: 13px; }
+.leave-bar .lb-track { height: 6px; background: var(--border); border-radius: 3px; overflow: hidden; }
+.leave-bar .lb-fill { height: 100%; border-radius: 3px; }
+
+/* Modal overlay */
+.modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,.5); z-index: 9000; display: none; align-items: flex-end; }
+.modal-overlay.open { display: flex; }
+.modal-sheet { background: #fff; border-radius: 20px 20px 0 0; padding: 0; width: 100%; max-height: 85dvh; overflow-y: auto; padding-bottom: max(16px, env(safe-area-inset-bottom)); }
+.modal-drag { width: 36px; height: 4px; background: var(--border); border-radius: 2px; margin: 10px auto 0; }
+.modal-title { padding: 16px 20px 8px; font-size: 17px; font-weight: 700; border-bottom: 1px solid var(--border); }
+.modal-body { padding: 16px 20px; }
+
+@media (min-width: 480px) {
+  .modal-overlay { align-items: center; justify-content: center; }
+  .modal-sheet { border-radius: 20px; max-width: 440px; margin: auto; }
+}
+</style>
+</head>
+<body>
+
+<!-- Loading -->
+<div id="loadingOverlay"><div class="spinner"></div></div>
+<div id="toast"></div>
+
+<!-- ══════════════════ LOGIN SCREEN ══════════════════ -->
+<div id="loginScreen">
+  <div class="login-card">
+    <div class="login-logo">
+      <div class="logo-icon"><i class="fas fa-hard-hat" style="color:#fff;font-size:28px"></i></div>
+      <h1>Indus Projects</h1>
+      <p>Employee Self-Service Portal</p>
+    </div>
+    <div id="loginError" class="error-msg"></div>
+    <div class="form-group">
+      <label>Employee Code</label>
+      <input type="text" id="loginCode" placeholder="e.g. EMP001" autocomplete="username" autocapitalize="off">
+    </div>
+    <div class="form-group">
+      <label>Password</label>
+      <input type="password" id="loginPass" placeholder="Default: your Employee Code" autocomplete="current-password">
+    </div>
+    <button class="btn-login" onclick="EP.login()"><i class="fas fa-sign-in-alt me-2"></i>Login</button>
+    <p class="login-hint"><i class="fas fa-info-circle"></i> Default password is your Employee Code</p>
+  </div>
+</div>
+
+<!-- ══════════════════ APP SHELL ══════════════════════ -->
+<div id="appShell">
+  <!-- Header -->
+  <div class="app-header">
+    <div class="emp-info">
+      <h2 id="hdrName">Employee</h2>
+      <p id="hdrDesig">—</p>
+    </div>
+    <div style="display:flex;gap:4px">
+      <button class="btn-icon" onclick="EP.nav('profile')" title="Profile"><i class="fas fa-user-circle"></i></button>
+      <button class="btn-icon" onclick="EP.logout()" title="Logout"><i class="fas fa-sign-out-alt"></i></button>
+    </div>
+  </div>
+
+  <!-- Pages -->
+  <div class="pages">
+
+    <!-- ── HOME ───────────────────────────────────── -->
+    <div class="page active" id="pageHome">
+      <div class="date-badge">
+        <div>
+          <div class="day" id="todayDay">Monday</div>
+          <div class="date" id="todayDate">—</div>
+        </div>
+        <div style="text-align:right">
+          <div style="font-size:12px;opacity:.8">Today</div>
+          <div id="liveClock" style="font-size:18px;font-weight:700">00:00</div>
+        </div>
+      </div>
+
+      <!-- Punch -->
+      <div class="card">
+        <div class="card-header"><i class="fas fa-fingerprint" style="color:var(--accent)"></i>Attendance Punch</div>
+        <div class="card-body">
+          <div class="punch-row">
+            <button class="punch-btn in" id="btnPunchIn" onclick="EP.punch('in')">
+              <i class="fas fa-sign-in-alt"></i>
+              <span>Punch In</span>
+              <span class="time-label" id="punchInTime">—</span>
+            </button>
+            <button class="punch-btn out" id="btnPunchOut" onclick="EP.punch('out')">
+              <i class="fas fa-sign-out-alt"></i>
+              <span>Punch Out</span>
+              <span class="time-label" id="punchOutTime">—</span>
+            </button>
+          </div>
+          <div id="punchLocInfo" style="margin-top:12px;font-size:12px;color:var(--muted);display:none">
+            <i class="fas fa-map-marker-alt" style="color:var(--primary-light)"></i> <span id="punchLocText"></span>
+          </div>
+        </div>
+      </div>
+
+      <!-- This month stats -->
+      <div class="section-title">This Month</div>
+      <div class="stats-grid" style="margin-bottom:16px">
+        <div class="stat-box"><div class="n text-success" id="statPresent">0</div><div class="l">Present</div></div>
+        <div class="stat-box"><div class="n" style="color:var(--warn)" id="statLeave">0</div><div class="l">On Leave</div></div>
+        <div class="stat-box"><div class="n" style="color:var(--danger)" id="statAbsent">0</div><div class="l">Absent</div></div>
+      </div>
+
+      <!-- Leave balance mini -->
+      <div class="card">
+        <div class="card-header"><i class="fas fa-umbrella-beach" style="color:var(--warn)"></i>Leave Balance</div>
+        <div class="card-body" id="homeLeaveBalance">Loading…</div>
+      </div>
+
+      <!-- Recent leaves -->
+      <div class="card">
+        <div class="card-header"><i class="fas fa-history" style="color:var(--muted)"></i>Recent Requests</div>
+        <div class="card-body" id="homeRecentLeaves" style="padding-top:4px">Loading…</div>
+      </div>
+    </div>
+
+    <!-- ── ATTENDANCE ──────────────────────────────── -->
+    <div class="page" id="pageAttendance">
+      <div style="display:flex;align-items:center;gap:10px;margin-bottom:14px">
+        <button onclick="EP.attPrev()" style="background:var(--card);border:1px solid var(--border);border-radius:8px;padding:7px 12px;cursor:pointer"><i class="fas fa-chevron-left"></i></button>
+        <div style="flex:1;text-align:center;font-weight:700;font-size:15px" id="attMonthLabel"></div>
+        <button onclick="EP.attNext()" style="background:var(--card);border:1px solid var(--border);border-radius:8px;padding:7px 12px;cursor:pointer"><i class="fas fa-chevron-right"></i></button>
+      </div>
+      <div class="card">
+        <div class="card-body" style="padding:0" id="attList"></div>
+      </div>
+    </div>
+
+    <!-- ── LEAVES ─────────────────────────────────── -->
+    <div class="page" id="pageLeaves">
+      <!-- Leave balance -->
+      <div class="card">
+        <div class="card-header"><i class="fas fa-chart-pie" style="color:var(--warn)"></i>Leave Balance</div>
+        <div class="card-body" id="leaveBalanceDetail">Loading…</div>
+      </div>
+      <!-- Apply -->
+      <button class="btn-primary" style="margin-bottom:14px" onclick="EP.openLeaveForm()">
+        <i class="fas fa-plus me-2"></i>Apply for Leave
+      </button>
+      <!-- My Leaves -->
+      <div class="section-title">My Leave Requests</div>
+      <div class="card">
+        <div class="card-body" style="padding:0" id="myLeavesList"></div>
+      </div>
+    </div>
+
+    <!-- ── ADVANCE ────────────────────────────────── -->
+    <div class="page" id="pageAdvance">
+      <button class="btn-primary" style="margin-bottom:14px" onclick="EP.openAdvanceForm()">
+        <i class="fas fa-hand-holding-usd me-2"></i>Apply for Advance
+      </button>
+      <div class="section-title">My Advance Requests</div>
+      <div class="card">
+        <div class="card-body" style="padding:0" id="myAdvancesList"></div>
+      </div>
+    </div>
+
+    <!-- ── PROFILE ────────────────────────────────── -->
+    <div class="page" id="pageProfile">
+      <div class="card" style="margin-bottom:14px">
+        <div class="card-body">
+          <div style="text-align:center;padding:16px 0">
+            <div style="width:72px;height:72px;background:var(--primary);border-radius:50%;display:inline-flex;align-items:center;justify-content:center;margin-bottom:12px">
+              <i class="fas fa-user" style="color:#fff;font-size:28px"></i>
+            </div>
+            <div style="font-size:18px;font-weight:700" id="profName"></div>
+            <div style="font-size:13px;color:var(--muted)" id="profDesig"></div>
+            <div style="font-size:12px;color:var(--muted);margin-top:4px" id="profDept"></div>
+          </div>
+          <div id="profDetails"></div>
+        </div>
+      </div>
+
+      <!-- Change password -->
+      <div class="card">
+        <div class="card-header"><i class="fas fa-lock" style="color:var(--primary-light)"></i>Change Password</div>
+        <div class="card-body">
+          <div class="f-group">
+            <label class="f-label">Current Password</label>
+            <input type="password" class="f-input" id="cpOld" placeholder="Enter current password">
+          </div>
+          <div class="f-group">
+            <label class="f-label">New Password</label>
+            <input type="password" class="f-input" id="cpNew" placeholder="Min 4 characters">
+          </div>
+          <div class="f-group">
+            <label class="f-label">Confirm New Password</label>
+            <input type="password" class="f-input" id="cpConfirm" placeholder="Repeat new password">
+          </div>
+          <button class="btn-primary" onclick="EP.changePassword()">Update Password</button>
+        </div>
+      </div>
+
+      <button class="btn-outline" style="margin-top:8px" onclick="EP.logout()">
+        <i class="fas fa-sign-out-alt me-2"></i>Logout
+      </button>
+    </div>
+
+  </div><!-- .pages -->
+
+  <!-- Bottom nav -->
+  <nav class="bottom-nav">
+    <button class="nav-btn active" id="navHome" onclick="EP.nav('home')">
+      <i class="fas fa-home"></i><span>Home</span>
+    </button>
+    <button class="nav-btn" id="navAttendance" onclick="EP.nav('attendance')">
+      <i class="fas fa-calendar-check"></i><span>Attendance</span>
+    </button>
+    <button class="nav-btn" id="navLeaves" onclick="EP.nav('leaves')">
+      <i class="fas fa-umbrella-beach"></i><span>Leaves</span>
+    </button>
+    <button class="nav-btn" id="navAdvance" onclick="EP.nav('advance')">
+      <i class="fas fa-hand-holding-usd"></i><span>Advance</span>
+    </button>
+    <button class="nav-btn" id="navProfile" onclick="EP.nav('profile')">
+      <i class="fas fa-user-circle"></i><span>Profile</span>
+    </button>
+  </nav>
+</div><!-- #appShell -->
+
+<!-- ── LEAVE FORM MODAL ──────────────────────────────────── -->
+<div class="modal-overlay" id="leaveModal" onclick="if(event.target===this)EP.closeLeaveForm()">
+  <div class="modal-sheet">
+    <div class="modal-drag"></div>
+    <div class="modal-title">Apply for Leave</div>
+    <div class="modal-body">
+      <div class="f-group">
+        <label class="f-label">Leave Type</label>
+        <select class="f-input" id="lv_type">
+          <option value="Casual Leave">Casual Leave (CL)</option>
+          <option value="Sick Leave">Sick Leave (SL)</option>
+          <option value="Earned Leave">Earned Leave (EL)</option>
+          <option value="LOP">Leave Without Pay (LOP)</option>
+        </select>
+      </div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
+        <div class="f-group">
+          <label class="f-label">From Date</label>
+          <input type="date" class="f-input" id="lv_from">
+        </div>
+        <div class="f-group">
+          <label class="f-label">To Date</label>
+          <input type="date" class="f-input" id="lv_to">
+        </div>
+      </div>
+      <div class="f-group">
+        <label class="f-label">Reason</label>
+        <textarea class="f-input" id="lv_reason" rows="3" placeholder="Brief reason for leave…" style="resize:none"></textarea>
+      </div>
+      <button class="btn-primary" onclick="EP.submitLeave()">Submit Application</button>
+      <button class="btn-outline" style="margin-top:10px" onclick="EP.closeLeaveForm()">Cancel</button>
+    </div>
+  </div>
+</div>
+
+<!-- ── ADVANCE FORM MODAL ────────────────────────────────── -->
+<div class="modal-overlay" id="advanceModal" onclick="if(event.target===this)EP.closeAdvanceForm()">
+  <div class="modal-sheet">
+    <div class="modal-drag"></div>
+    <div class="modal-title">Apply for Advance</div>
+    <div class="modal-body">
+      <div class="f-group">
+        <label class="f-label">Amount (₹)</label>
+        <input type="number" class="f-input" id="adv_amount" placeholder="e.g. 5000" min="100">
+      </div>
+      <div class="f-group">
+        <label class="f-label">Repayment (months)</label>
+        <select class="f-input" id="adv_repay">
+          <option value="1">1 month</option>
+          <option value="2">2 months</option>
+          <option value="3" selected>3 months</option>
+          <option value="6">6 months</option>
+          <option value="12">12 months</option>
+        </select>
+      </div>
+      <div class="f-group">
+        <label class="f-label">Purpose</label>
+        <textarea class="f-input" id="adv_purpose" rows="3" placeholder="Reason for advance…" style="resize:none"></textarea>
+      </div>
+      <button class="btn-primary" onclick="EP.submitAdvance()">Submit Request</button>
+      <button class="btn-outline" style="margin-top:10px" onclick="EP.closeAdvanceForm()">Cancel</button>
+    </div>
+  </div>
+</div>
+
+<script>
+// ════════════════════════════════════════════════════════════
+// Employee Portal App
+// ════════════════════════════════════════════════════════════
+const EP = {
+  emp: null,
+  _attYear: new Date().getFullYear(),
+  _attMonth: new Date().getMonth() + 1,
+
+  // ── Utilities ──────────────────────────────────────────────
+  api(path, opts = {}) {
+    return fetch(path, { headers: { 'Content-Type': 'application/json', ...(opts.headers||{}) }, ...opts })
+      .then(r => r.json());
+  },
+  post(path, body) { return this.api(path, { method: 'POST', body: JSON.stringify(body) }); },
+
+  loading(show) { document.getElementById('loadingOverlay').style.display = show ? 'flex' : 'none'; },
+
+  toast(msg, dur = 2800) {
+    const el = document.getElementById('toast');
+    el.textContent = msg; el.classList.add('show');
+    clearTimeout(this._toastT);
+    this._toastT = setTimeout(() => el.classList.remove('show'), dur);
+  },
+
+  today() { return new Date().toISOString().slice(0, 10); },
+  fmtDate(d) { if (!d) return ''; const p = d.split('-'); return p.length===3 ? `${p[2]}/${p[1]}/${p[0]}` : d; },
+  fmtDow(d) { return ['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'][new Date(d).getDay()]; },
+  monthName(m) { return ['','Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'][+m] || ''; },
+  daysInMonth(y, m) { return new Date(y, m, 0).getDate(); },
+  fmt2(n) { return String(n).padStart(2, '0'); },
+  currFmt(n) { return '₹' + Number(n||0).toLocaleString('en-IN'); },
+
+  // ── Auth ───────────────────────────────────────────────────
+  async login() {
+    const code = document.getElementById('loginCode').value.trim();
+    const pass = document.getElementById('loginPass').value;
+    const errEl = document.getElementById('loginError');
+    errEl.style.display = 'none';
+    if (!code || !pass) { errEl.textContent = 'Please enter Employee Code and Password.'; errEl.style.display = 'block'; return; }
+    this.loading(true);
+    try {
+      const res = await this.post('/api/employee-login', { empCode: code, password: pass });
+      if (!res.ok) { errEl.textContent = res.error || 'Login failed.'; errEl.style.display = 'block'; return; }
+      this.emp = res.employee;
+      sessionStorage.setItem('ep_emp', JSON.stringify(this.emp));
+      this.startApp();
+    } catch(e) { errEl.textContent = 'Server error. Please try again.'; errEl.style.display = 'block'; }
+    finally { this.loading(false); }
+  },
+
+  logout() {
+    sessionStorage.removeItem('ep_emp');
+    this.emp = null;
+    document.getElementById('appShell').style.display = 'none';
+    document.getElementById('loginScreen').style.display = 'flex';
+    document.getElementById('loginCode').value = '';
+    document.getElementById('loginPass').value = '';
+  },
+
+  async changePassword() {
+    const old = document.getElementById('cpOld').value;
+    const nw  = document.getElementById('cpNew').value;
+    const cnf = document.getElementById('cpConfirm').value;
+    if (!old || !nw || !cnf) { this.toast('Please fill all fields'); return; }
+    if (nw !== cnf) { this.toast('New passwords do not match'); return; }
+    if (nw.length < 4) { this.toast('Password must be at least 4 characters'); return; }
+    this.loading(true);
+    const res = await this.post('/api/employee-change-password', { empId: this.emp.id, oldPassword: old, newPassword: nw });
+    this.loading(false);
+    if (res.ok) {
+      document.getElementById('cpOld').value = document.getElementById('cpNew').value = document.getElementById('cpConfirm').value = '';
+      this.toast('✓ Password changed successfully');
+    } else { this.toast(res.error || 'Failed to change password'); }
+  },
+
+  // ── App init ───────────────────────────────────────────────
+  startApp() {
+    const e = this.emp;
+    document.getElementById('loginScreen').style.display = 'none';
+    document.getElementById('appShell').style.display = 'flex';
+    document.getElementById('hdrName').textContent = `${e.firstName} ${e.lastName}`;
+    document.getElementById('hdrDesig').textContent = `${e.empCode} · ${e.designation||''}`;
+    this.updateClock();
+    this.nav('home');
+    this.loadHomeData();
+    this.loadLeaveBalance();
+    this.loadAttendancePage();
+  },
+
+  updateClock() {
+    const tick = () => {
+      const n = new Date();
+      document.getElementById('liveClock').textContent =
+        this.fmt2(n.getHours()) + ':' + this.fmt2(n.getMinutes()) + ':' + this.fmt2(n.getSeconds());
+    };
+    tick(); setInterval(tick, 1000);
+
+    const dt = new Date();
+    document.getElementById('todayDay').textContent = ['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'][dt.getDay()];
+    document.getElementById('todayDate').textContent = `${dt.getDate()} ${['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'][dt.getMonth()]} ${dt.getFullYear()}`;
+  },
+
+  // ── Navigation ─────────────────────────────────────────────
+  nav(section) {
+    document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+    document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active'));
+    document.getElementById('page' + section.charAt(0).toUpperCase() + section.slice(1))?.classList.add('active');
+    document.getElementById('nav' + section.charAt(0).toUpperCase() + section.slice(1))?.classList.add('active');
+    if (section === 'home') this.loadHomeData();
+    else if (section === 'attendance') this.loadAttendancePage();
+    else if (section === 'leaves') this.loadLeavesPage();
+    else if (section === 'advance') this.loadAdvancesPage();
+    else if (section === 'profile') this.loadProfile();
+  },
+
+  // ── HOME ───────────────────────────────────────────────────
+  async loadHomeData() {
+    if (!this.emp) return;
+    // Punch status
+    try {
+      const status = await this.api(`/api/punch/status/${this.emp.id}`);
+      this._updatePunchUI(status.punchIn, status.punchOut);
+    } catch(e) {}
+
+    // Monthly stats
+    const now = new Date();
+    const yr = now.getFullYear(), mo = now.getMonth() + 1;
+    try {
+      const att = await this.api('/api/attendance');
+      const prefix = `${yr}-${this.fmt2(mo)}-`;
+      const myAtt = att.filter(a => a.empId === this.emp.id && a.date.startsWith(prefix));
+      let P=0, L=0, A=0;
+      for (let d=1; d<=this.daysInMonth(yr,mo); d++) {
+        const dt = `${yr}-${this.fmt2(mo)}-${this.fmt2(d)}`;
+        if (new Date(dt).getDay() === 0) continue;
+        if (new Date(dt) > now) continue;
+        const rec = myAtt.find(a => a.date === dt);
+        if (rec?.status === 'present' || rec?.punchIn?.time) P++;
+        else if (rec?.status === 'on-leave' || rec?.status === 'half-day') L++;
+        else A++;
+      }
+      document.getElementById('statPresent').textContent = P;
+      document.getElementById('statLeave').textContent = L;
+      document.getElementById('statAbsent').textContent = A;
+    } catch(e) {}
+
+    // Leave balance
+    this.loadHomeLeaveBalance();
+
+    // Recent leaves
+    this.loadHomeRecentLeaves();
+  },
+
+  _updatePunchUI(pIn, pOut) {
+    const btnIn = document.getElementById('btnPunchIn');
+    const btnOut = document.getElementById('btnPunchOut');
+    document.getElementById('punchInTime').textContent = pIn?.time || '—';
+    document.getElementById('punchOutTime').textContent = pOut?.time || '—';
+    btnIn.disabled = !!pIn?.time;
+    btnOut.disabled = !pIn?.time || !!pOut?.time;
+    if (pIn?.address || pIn?.lat) {
+      const loc = pIn.address ? pIn.address.slice(0,70) : `${pIn.lat}, ${pIn.lng}`;
+      document.getElementById('punchLocText').textContent = loc;
+      document.getElementById('punchLocInfo').style.display = 'block';
+    }
+  },
+
+  async loadHomeLeaveBalance() {
+    const yr = new Date().getFullYear();
+    try {
+      const bals = await this.api('/api/leaveBalances');
+      const bal = bals.find(b => b.empId === this.emp.id && b.year === yr);
+      const el = document.getElementById('homeLeaveBalance');
+      if (!bal) { el.textContent = 'No leave balance found.'; return; }
+      el.innerHTML = `
+        <div style="display:flex;justify-content:space-around;text-align:center">
+          <div><div style="font-size:22px;font-weight:800;color:var(--accent)">${bal.casual?.balance||0}</div><div style="font-size:11px;color:var(--muted)">CL Left</div></div>
+          <div><div style="font-size:22px;font-weight:800;color:var(--primary-light)">${bal.sick?.balance||0}</div><div style="font-size:11px;color:var(--muted)">SL Left</div></div>
+          <div><div style="font-size:22px;font-weight:800;color:var(--warn)">${bal.earned?.balance||0}</div><div style="font-size:11px;color:var(--muted)">EL Left</div></div>
+        </div>`;
+    } catch(e) {}
+  },
+
+  async loadHomeRecentLeaves() {
+    try {
+      const leaves = await this.api('/api/leaves');
+      const mine = leaves.filter(l => l.empId === this.emp.id).sort((a,b) => b.appliedDate > a.appliedDate ? 1 : -1).slice(0, 4);
+      const el = document.getElementById('homeRecentLeaves');
+      if (!mine.length) { el.innerHTML = '<div style="text-align:center;color:var(--muted);padding:16px 0;font-size:13px">No leave requests yet</div>'; return; }
+      el.innerHTML = mine.map(l => {
+        const color = l.status==='approved'?'var(--accent)':l.status==='rejected'?'var(--danger)':'var(--warn)';
+        const icon  = l.status==='approved'?'check-circle':l.status==='rejected'?'times-circle':'clock';
+        return `<div class="list-item">
+          <div class="li-icon" style="background:${color}22;color:${color}"><i class="fas fa-${icon}"></i></div>
+          <div class="li-body">
+            <div class="li-title">${l.leaveType}</div>
+            <div class="li-sub">${this.fmtDate(l.startDate)} – ${this.fmtDate(l.endDate)} · ${l.days||1} day(s)</div>
+          </div>
+          <div class="li-right"><span class="status-pill ${l.status==='approved'?'pill-green':l.status==='rejected'?'pill-red':'pill-yellow'}">${l.status}</span></div>
+        </div>`;
+      }).join('');
+    } catch(e) {}
+  },
+
+  // ── PUNCH ──────────────────────────────────────────────────
+  punch(type) {
+    const btn = document.getElementById(type==='in' ? 'btnPunchIn' : 'btnPunchOut');
+    btn.disabled = true;
+    btn.innerHTML = `<i class="fas fa-spinner fa-spin"></i><span>Getting GPS…</span><span class="time-label">Please wait</span>`;
+
+    const doSave = (lat, lng, address) => {
+      this.post('/api/punch', { empId: this.emp.id, type, lat, lng, address })
+        .then(res => {
+          if (res.ok) {
+            this.toast(`✓ Punch ${type==='in'?'In':'Out'} recorded at ${res.time}`);
+            this._updatePunchUI(
+              type==='in' ? { time: res.time, lat, lng, address } : null,
+              type==='out'? { time: res.time, lat, lng, address } : null
+            );
+            // Refresh full status
+            this.api(`/api/punch/status/${this.emp.id}`).then(s => this._updatePunchUI(s.punchIn, s.punchOut)).catch(()=>{});
+          } else { this.toast(res.error || 'Failed to save punch'); btn.disabled = false; }
+        })
+        .catch(() => { this.toast('Server error'); btn.disabled = false; })
+        .finally(() => {
+          btn.innerHTML = type==='in'
+            ? `<i class="fas fa-sign-in-alt"></i><span>Punch In</span><span class="time-label" id="punchInTime">${document.getElementById('punchInTime').textContent}</span>`
+            : `<i class="fas fa-sign-out-alt"></i><span>Punch Out</span><span class="time-label" id="punchOutTime">${document.getElementById('punchOutTime').textContent}</span>`;
+        });
+    };
+
+    if (!navigator.geolocation) {
+      this.toast('GPS not available on this device');
+      btn.disabled = false; return;
+    }
+    navigator.geolocation.getCurrentPosition(
+      pos => {
+        const lat = pos.coords.latitude.toFixed(6);
+        const lng = pos.coords.longitude.toFixed(6);
+        fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lng}`)
+          .then(r => r.json())
+          .then(d => doSave(lat, lng, d.display_name || `${lat},${lng}`))
+          .catch(() => doSave(lat, lng, `${lat},${lng}`));
+      },
+      () => {
+        this.toast('Location access denied — please enable GPS');
+        btn.disabled = false;
+        btn.innerHTML = type==='in'
+          ? `<i class="fas fa-sign-in-alt"></i><span>Punch In</span><span class="time-label" id="punchInTime">—</span>`
+          : `<i class="fas fa-sign-out-alt"></i><span>Punch Out</span><span class="time-label" id="punchOutTime">—</span>`;
+      },
+      { enableHighAccuracy: true, timeout: 15000 }
+    );
+  },
+
+  // ── ATTENDANCE PAGE ────────────────────────────────────────
+  attPrev() { if (this._attMonth===1){this._attMonth=12;this._attYear--;} else this._attMonth--; this.loadAttendancePage(); },
+  attNext() { if (this._attMonth===12){this._attMonth=1;this._attYear++;} else this._attMonth++; this.loadAttendancePage(); },
+
+  async loadAttendancePage() {
+    const yr = this._attYear, mo = this._attMonth;
+    document.getElementById('attMonthLabel').textContent = `${this.monthName(mo)} ${yr}`;
+    const container = document.getElementById('attList');
+    container.innerHTML = '<div style="padding:20px;text-align:center;color:var(--muted)">Loading…</div>';
+    try {
+      const att = await this.api('/api/attendance');
+      const prefix = `${yr}-${this.fmt2(mo)}-`;
+      const myAtt = att.filter(a => a.empId === this.emp.id && a.date.startsWith(prefix));
+      const days = this.daysInMonth(yr, mo);
+      const rows = [];
+      for (let d = days; d >= 1; d--) {
+        const dt = `${yr}-${this.fmt2(mo)}-${this.fmt2(d)}`;
+        const dow = new Date(dt).getDay();
+        if (dow === 0) continue;
+        const rec = myAtt.find(a => a.date === dt);
+        const pi = rec?.punchIn||{}, po = rec?.punchOut||{};
+        const status = rec?.status || 'absent';
+        const color = status==='present'?'var(--accent)':status==='on-leave'?'var(--primary-light)':status==='half-day'?'var(--warn)':'var(--danger)';
+        const icon  = status==='present'?'check':status==='on-leave'?'umbrella-beach':status==='half-day'?'adjust':'times';
+        const hours = pi.time && po.time ? this._calcHours(pi.time, po.time) : '';
+        const mapLinkIn = pi.lat ? `<a href="https://maps.google.com/?q=${pi.lat},${pi.lng}" target="_blank" class="loc-chip"><i class="fas fa-map-marker-alt"></i>Map</a>` : '';
+        const mapLinkOut = po.lat ? `<a href="https://maps.google.com/?q=${po.lat},${po.lng}" target="_blank" class="loc-chip"><i class="fas fa-map-marker-alt"></i>Map</a>` : '';
+        rows.push(`<div class="list-item" style="padding:12px 16px">
+          <div class="li-icon" style="background:${color}22;color:${color}"><i class="fas fa-${icon}"></i></div>
+          <div class="li-body">
+            <div style="display:flex;justify-content:space-between;align-items:center">
+              <div class="li-title">${this.fmtDate(dt)} <small style="color:var(--muted);font-weight:400">${['Sun','Mon','Tue','Wed','Thu','Fri','Sat'][dow]}</small></div>
+              <span class="status-pill ${status==='present'?'pill-green':status==='absent'?'pill-red':status==='on-leave'?'pill-blue':'pill-yellow'}" style="font-size:11px">${status==='on-leave'?'Leave':status==='half-day'?'Half':status.charAt(0).toUpperCase()+status.slice(1)}</span>
+            </div>
+            <div style="margin-top:5px;font-size:12px;display:flex;gap:12px;flex-wrap:wrap">
+              ${pi.time?`<span style="color:var(--accent)"><i class="fas fa-sign-in-alt me-1"></i>${pi.time}</span>${mapLinkIn}`:'<span style="color:var(--muted)">No punch in</span>'}
+              ${po.time?`<span style="color:var(--primary-light)"><i class="fas fa-sign-out-alt me-1"></i>${po.time}</span>${mapLinkOut}`:''}
+              ${hours?`<span style="color:var(--muted)"><i class="fas fa-clock me-1"></i>${hours}</span>`:''}
+            </div>
+          </div>
+        </div>`);
+      }
+      container.innerHTML = rows.length ? rows.join('') : '<div style="padding:24px;text-align:center;color:var(--muted)">No attendance records for this month</div>';
+    } catch(e) { container.innerHTML = '<div style="padding:20px;color:var(--danger)">Failed to load data</div>'; }
+  },
+
+  _calcHours(inT, outT) {
+    if (!inT || !outT) return '';
+    const [ih, im] = inT.split(':').map(Number);
+    const [oh, om] = outT.split(':').map(Number);
+    const mins = (oh*60+om)-(ih*60+im);
+    if (mins <= 0) return '';
+    return `${Math.floor(mins/60)}h ${mins%60}m`;
+  },
+
+  // ── LEAVES PAGE ────────────────────────────────────────────
+  async loadLeaveBalance() {
+    const yr = new Date().getFullYear();
+    try {
+      const bals = await this.api('/api/leaveBalances');
+      const bal = bals.find(b => b.empId === this.emp.id && b.year === yr);
+      const el = document.getElementById('leaveBalanceDetail');
+      if (!bal) { el.textContent = 'No leave balance found.'; return; }
+      const bar = (label, used, entitled, color) => `
+        <div class="leave-bar">
+          <div class="lb-row"><span>${label}</span><span style="font-weight:700">${entitled-(used||0)} / ${entitled} left</span></div>
+          <div class="lb-track"><div class="lb-fill" style="width:${entitled>0?((used||0)/entitled*100).toFixed(0):0}%;background:${color}"></div></div>
+        </div>`;
+      el.innerHTML =
+        bar('Casual Leave (CL)', bal.casual?.used||0, bal.casual?.entitled||0, 'var(--accent)') +
+        bar('Sick Leave (SL)', bal.sick?.used||0, bal.sick?.entitled||0, 'var(--primary-light)') +
+        bar('Earned Leave (EL)', bal.earned?.used||0, bal.earned?.entitled||0, 'var(--warn)');
+    } catch(e) {}
+  },
+
+  async loadLeavesPage() {
+    this.loadLeaveBalance();
+    try {
+      const leaves = await this.api('/api/leaves');
+      const mine = leaves.filter(l => l.empId === this.emp.id).sort((a,b) => b.appliedDate > a.appliedDate ? 1 : -1);
+      const el = document.getElementById('myLeavesList');
+      if (!mine.length) { el.innerHTML = '<div style="padding:20px;text-align:center;color:var(--muted)">No leave requests yet</div>'; return; }
+      el.innerHTML = mine.map(l => {
+        const color = l.status==='approved'?'var(--accent)':l.status==='rejected'?'var(--danger)':'var(--warn)';
+        return `<div class="list-item" style="padding:12px 16px">
+          <div class="li-icon" style="background:${color}22;color:${color}"><i class="fas fa-umbrella-beach"></i></div>
+          <div class="li-body">
+            <div class="li-title">${l.leaveType} <span style="color:var(--muted);font-weight:400;font-size:12px">· ${l.days||1} day(s)</span></div>
+            <div class="li-sub">${this.fmtDate(l.startDate)} → ${this.fmtDate(l.endDate)}</div>
+            <div class="li-sub" style="margin-top:2px">${l.reason||''}</div>
+          </div>
+          <div class="li-right"><span class="status-pill ${l.status==='approved'?'pill-green':l.status==='rejected'?'pill-red':'pill-yellow'}" style="font-size:11px">${l.status}</span></div>
+        </div>`;
+      }).join('');
+    } catch(e) {}
+  },
+
+  openLeaveForm() {
+    const dt = this.today();
+    document.getElementById('lv_from').value = dt;
+    document.getElementById('lv_to').value = dt;
+    document.getElementById('lv_reason').value = '';
+    document.getElementById('leaveModal').classList.add('open');
+  },
+  closeLeaveForm() { document.getElementById('leaveModal').classList.remove('open'); },
+
+  async submitLeave() {
+    const from = document.getElementById('lv_from').value;
+    const to   = document.getElementById('lv_to').value;
+    const type = document.getElementById('lv_type').value;
+    const reason = document.getElementById('lv_reason').value.trim();
+    if (!from || !to || !reason) { this.toast('Please fill all fields'); return; }
+    if (to < from) { this.toast('End date cannot be before start date'); return; }
+    const days = Math.ceil((new Date(to)-new Date(from))/86400000)+1;
+    const rec = {
+      id: 'lv_' + Date.now(),
+      empId: this.emp.id,
+      leaveType: type,
+      startDate: from,
+      endDate: to,
+      days,
+      reason,
+      status: 'pending',
+      appliedDate: this.today()
+    };
+    this.loading(true);
+    const res = await this.post('/api/leaves', rec);
+    this.loading(false);
+    if (res.ok) {
+      this.closeLeaveForm();
+      this.toast(`✓ Leave application submitted for ${days} day(s)`);
+      this.loadLeavesPage();
+      this.loadHomeRecentLeaves();
+    } else { this.toast(res.error || 'Failed to submit'); }
+  },
+
+  // ── ADVANCES PAGE ──────────────────────────────────────────
+  async loadAdvancesPage() {
+    try {
+      const advances = await this.api('/api/advances');
+      const mine = advances.filter(a => a.empId === this.emp.id).sort((a,b) => b.appliedDate > a.appliedDate ? 1 : -1);
+      const el = document.getElementById('myAdvancesList');
+      if (!mine.length) { el.innerHTML = '<div style="padding:20px;text-align:center;color:var(--muted)">No advance requests yet</div>'; return; }
+      el.innerHTML = mine.map(a => {
+        const color = a.status==='approved'?'var(--accent)':a.status==='rejected'?'var(--danger)':'var(--warn)';
+        return `<div class="list-item" style="padding:12px 16px">
+          <div class="li-icon" style="background:${color}22;color:${color}"><i class="fas fa-money-bill-wave"></i></div>
+          <div class="li-body">
+            <div class="li-title">${this.currFmt(a.amount)}</div>
+            <div class="li-sub">${this.fmtDate(a.appliedDate)} · ${a.repaymentMonths||1} month repayment</div>
+            <div class="li-sub">${a.purpose||''}</div>
+          </div>
+          <div class="li-right"><span class="status-pill ${a.status==='approved'?'pill-green':a.status==='rejected'?'pill-red':'pill-yellow'}" style="font-size:11px">${a.status}</span></div>
+        </div>`;
+      }).join('');
+    } catch(e) {}
+  },
+
+  openAdvanceForm() {
+    document.getElementById('adv_amount').value = '';
+    document.getElementById('adv_purpose').value = '';
+    document.getElementById('adv_repay').value = '3';
+    document.getElementById('advanceModal').classList.add('open');
+  },
+  closeAdvanceForm() { document.getElementById('advanceModal').classList.remove('open'); },
+
+  async submitAdvance() {
+    const amount = Number(document.getElementById('adv_amount').value);
+    const repay  = Number(document.getElementById('adv_repay').value);
+    const purpose = document.getElementById('adv_purpose').value.trim();
+    if (!amount || amount < 100) { this.toast('Please enter a valid amount (min ₹100)'); return; }
+    if (!purpose) { this.toast('Please describe the purpose'); return; }
+    const rec = {
+      id: 'adv_' + Date.now(),
+      empId: this.emp.id,
+      amount,
+      repaymentMonths: repay,
+      purpose,
+      status: 'pending',
+      appliedDate: this.today(),
+      repayments: []
+    };
+    this.loading(true);
+    const res = await this.post('/api/advances', rec);
+    this.loading(false);
+    if (res.ok) {
+      this.closeAdvanceForm();
+      this.toast(`✓ Advance request for ${this.currFmt(amount)} submitted`);
+      this.loadAdvancesPage();
+    } else { this.toast(res.error || 'Failed to submit'); }
+  },
+
+  // ── PROFILE ────────────────────────────────────────────────
+  loadProfile() {
+    const e = this.emp;
+    document.getElementById('profName').textContent = `${e.firstName} ${e.lastName}`;
+    document.getElementById('profDesig').textContent = e.designation||'';
+    document.getElementById('profDept').textContent = e.department||'';
+    const row = (label, val) => val ? `<div style="display:flex;justify-content:space-between;padding:7px 0;border-bottom:1px solid var(--border);font-size:13px"><span style="color:var(--muted)">${label}</span><span style="font-weight:600">${val}</span></div>` : '';
+    document.getElementById('profDetails').innerHTML =
+      row('Employee Code', e.empCode) +
+      row('Date of Joining', e.joiningDate ? this.fmtDate(e.joiningDate) : '') +
+      row('Phone', e.phone) +
+      row('Email', e.email) +
+      row('Project / Site', e.projectName) +
+      row('Employment Type', e.employmentType) +
+      row('Insurance', e.insuranceType);
+  }
+};
+
+// ── Boot ───────────────────────────────────────────────────────
+document.addEventListener('DOMContentLoaded', () => {
+  // Resume session
+  const saved = sessionStorage.getItem('ep_emp');
+  if (saved) {
+    try { EP.emp = JSON.parse(saved); EP.startApp(); }
+    catch { sessionStorage.removeItem('ep_emp'); }
+  }
+  // Enter on login
+  document.getElementById('loginPass').addEventListener('keydown', e => { if (e.key==='Enter') EP.login(); });
+  document.getElementById('loginCode').addEventListener('keydown', e => { if (e.key==='Enter') document.getElementById('loginPass').focus(); });
+});
+</script>
+</body>
+</html>
