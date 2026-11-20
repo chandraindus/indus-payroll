@@ -380,12 +380,12 @@ const PAY = {
       let paidDays = 0;
       for (let mo = 1; mo <= 12; mo++) {
         const pr = DB.getPayroll(emp.id, mo, yr);
-        if (pr) paidDays += Number(pr.presentDays || pr.payableDays || 0);
+        if (pr) paidDays += (Number(pr.presentDays || 0) + Number(pr.leaveDays || 0));
       }
       // Fall back to attendance records if no payroll data
       if (!paidDays) {
         const att = DB.getAttendance().filter(a => a.empId === emp.id && a.date.startsWith(yrStr));
-        paidDays = att.filter(a => ['P','present','HD','half-day','PL','SL','CL','EL','WO','H','paid'].includes(a.status)).length;
+        paidDays = att.filter(a => ['P','present','HD','half-day','on-leave','PL','SL','CL','EL','WO','H','paid'].includes(a.status)).length;
       }
       const payableMonths = Math.min(paidDays / 30, 12);
       const annual = Math.round((basic / 12) * payableMonths);
