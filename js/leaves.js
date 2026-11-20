@@ -163,24 +163,29 @@ const LEAVES = {
       tbody.innerHTML = '<tr><td colspan="8" class="text-center text-muted py-4">No active employees</td></tr>';
       return;
     }
-    let totalDays = 0, totalAmt = 0;
+    let totalEarned = 0, totalAmt = 0;
     tbody.innerHTML = emps.map((emp, i) => {
-      const bal = DB.initLeaveBalance(emp, yr);
-      const earnedDays = Number(bal?.earned?.balance || 0);
+      // Sum salary paid days across all 12 months from attendance
+      let salaryPaidDays = 0;
+      for (let m = 1; m <= 12; m++) {
+        const att = DB.getAttByMonth(emp.id, yr, m);
+        salaryPaidDays += att.filter(a => ['P','present','present-ot','H','holiday','WO','weekoff','L','leave','HD','half-day'].includes((a.status||'').toLowerCase())).length;
+      }
+      // Earned leave = paid_days/30 capped at 12
+      const earnedDays = Math.min(salaryPaidDays / 30, 12);
       const basic = Number(emp.basic || 0);
-      const perDay = basic / 30;
-      const amount = Math.round(perDay * earnedDays);
-      totalDays += earnedDays;
+      const amount = Math.round(earnedDays * (basic / 12));
+      totalEarned += earnedDays;
       totalAmt += amount;
       return `<tr>
         <td>${i+1}</td><td>${emp.empCode||''}</td>
         <td>${emp.firstName||''} ${emp.lastName||''}</td>
         <td>${emp.designation||'-'}</td><td>${emp.department||'-'}</td>
-        <td class="text-center fw-600">${earnedDays}</td>
-        <td class="text-end">${currFmt(perDay)}</td>
+        <td class="text-center">${salaryPaidDays}</td>
+        <td class="text-center fw-600">${earnedDays.toFixed(2)}</td>
         <td class="text-end fw-600">${currFmt(amount)}</td>
       </tr>`;
-    }).join('') + `<tr class="table-dark fw-bold"><td colspan="5" class="text-end">Total:</td><td class="text-center">${totalDays}</td><td></td><td class="text-end">${currFmt(totalAmt)}</td></tr>`;
+    }).join('') + `<tr class="table-dark fw-bold"><td colspan="6" class="text-end">Total:</td><td class="text-center">${totalEarned.toFixed(2)}</td><td class="text-end">${currFmt(totalAmt)}</td></tr>`;
   },
 
   _renderEncash(yearElId, tbodyId, colspan) {
