@@ -364,28 +364,42 @@ const PAY = {
   },
 
   renderLTARegister() {
+    const yr = Number(document.getElementById('ltaYear')?.value || new Date().getFullYear());
     const tbody = document.getElementById('ltaRegBody');
     if (!tbody) return;
     const emps = DB.getEmployees().filter(e => e.status === 'active' && e.hasLTA);
     if (!emps.length) {
-      tbody.innerHTML = '<tr><td colspan="8" class="text-center text-muted py-4">No employees with LTA eligibility — configure in Employee Register → Payroll tab</td></tr>';
+      tbody.innerHTML = '<tr><td colspan="9" class="text-center text-muted py-4">No employees with LTA eligibility — configure in Employee Register → Payroll tab</td></tr>';
       return;
     }
+    const yrStr = String(yr);
     let total = 0;
     tbody.innerHTML = emps.map((emp, i) => {
       const basic = Number(emp.basic || 0);
-      const annual = Number(emp.ltaAmount || basic);
-      const monthly = annual / 12;
+      // Sum paid days from payroll records for the year
+      let paidDays = 0;
+      for (let mo = 1; mo <= 12; mo++) {
+        const pr = DB.getPayroll(emp.id, mo, yr);
+        if (pr) paidDays += Number(pr.presentDays || pr.payableDays || 0);
+      }
+      // Fall back to attendance records if no payroll data
+      if (!paidDays) {
+        const att = DB.getAttendance().filter(a => a.empId === emp.id && a.date.startsWith(yrStr));
+        paidDays = att.filter(a => ['P','present','HD','half-day','PL','SL','CL','EL','WO','H','paid'].includes(a.status)).length;
+      }
+      const payableMonths = Math.min(paidDays / 30, 12);
+      const annual = Math.round((basic / 12) * payableMonths);
       total += annual;
       return `<tr>
         <td>${i+1}</td><td>${emp.empCode||''}</td>
         <td>${emp.firstName||''} ${emp.lastName||''}</td>
         <td>${emp.designation||'-'}</td><td>${emp.department||'-'}</td>
         <td class="text-end">${currFmt(basic)}</td>
-        <td class="text-end">${currFmt(monthly)}</td>
+        <td class="text-center">${paidDays}</td>
+        <td class="text-end">${numFmt(payableMonths)}</td>
         <td class="text-end fw-600">${currFmt(annual)}</td>
       </tr>`;
-    }).join('') + `<tr class="table-dark fw-bold"><td colspan="7" class="text-end">Total Annual LTA:</td><td class="text-end">${currFmt(total)}</td></tr>`;
+    }).join('') + `<tr class="table-dark fw-bold"><td colspan="8" class="text-end">Total Annual LTA:</td><td class="text-end">${currFmt(total)}</td></tr>`;
   },
 
   openLTAForm() {
