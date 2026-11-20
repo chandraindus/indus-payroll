@@ -438,13 +438,7 @@
         <div class="d-flex gap-2 align-items-center flex-wrap">
           <label class="form-label mb-0 fw-500">Year:</label>
           <select id="bonusYear" class="form-select form-select-sm" style="width:100px" onchange="PAY.renderBonusRegister()"><option>2026</option><option>2025</option><option>2027</option></select>
-          <label class="form-label mb-0 fw-500 ms-2">Formula:</label>
-          <select id="bonusFormula" class="form-select form-select-sm" style="width:230px" onchange="PAY.renderBonusRegister()">
-            <option value="1month">Festival Bonus (1 Month Basic)</option>
-            <option value="statutory">Statutory Minimum (8.33%)</option>
-            <option value="20pct">Annual Bonus (20% of Basic)</option>
-            <option value="configured">As Per Employee Config</option>
-          </select>
+          <small class="text-muted ms-2">Formula: min(Paid Days / Working Days × 12, 12) × (Gross/12)</small>
         </div>
         <div class="d-flex gap-2">
           <button class="btn btn-primary btn-sm" onclick="PAY.openBonusForm()"><i class="fas fa-plus me-1"></i>Add Bonus</button>
@@ -461,7 +455,7 @@
       <div class="card">
         <div class="table-responsive">
           <table class="table table-hover mb-0" id="bonusRegTable">
-            <thead class="table-dark"><tr><th>#</th><th>Emp Code</th><th>Name</th><th>Designation</th><th>Department</th><th class="text-end">Basic (₹)</th><th>Formula</th><th class="text-end">Bonus Amount (₹)</th><th class="text-end">Net Payable (₹)</th></tr></thead>
+            <thead class="table-dark"><tr><th>#</th><th>Emp Code</th><th>Name</th><th>Designation</th><th>Department</th><th class="text-end">Gross Salary (₹)</th><th class="text-center">Paid Days</th><th class="text-end">Payable Months</th><th class="text-end">Bonus Amount (₹)</th></tr></thead>
             <tbody id="bonusRegBody"></tbody>
           </table>
         </div>

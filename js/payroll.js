@@ -287,7 +287,7 @@ const PAY = {
   },
 
   renderBonusRegister() {
-    const formula = document.getElementById('bonusFormula')?.value || '1month';
+    const yr = Number(document.getElementById('bonusYear')?.value || new Date().getFullYear());
     const tbody = document.getElementById('bonusRegBody');
     if (!tbody) return;
     const emps = DB.getEmployees().filter(e => e.status === 'active' && e.hasBonus);
@@ -295,32 +295,46 @@ const PAY = {
       tbody.innerHTML = '<tr><td colspan="9" class="text-center text-muted py-4">No employees with bonus eligibility — configure in Employee Register → Payroll tab</td></tr>';
       return;
     }
-    const labels = { '1month':'Festival (1 Month Basic)', 'statutory':'Statutory Min (8.33%)', '20pct':'Annual (20% of Basic)', 'configured':'As Configured' };
+    const yrStr = String(yr);
     let total = 0;
     tbody.innerHTML = emps.map((emp, i) => {
-      const basic = Number(emp.basic || 0);
-      let amount = 0;
-      if (formula === '1month') {
-        amount = basic;
-      } else if (formula === 'statutory') {
-        amount = Math.min(basic, 7000) * 12 * 8.33 / 100;
-      } else if (formula === '20pct') {
-        amount = basic * 12 * 20 / 100;
-      } else {
-        amount = emp.bonusType === 'percentage' ? basic * Number(emp.bonusValue||0)/100 : Number(emp.bonusValue||0);
+      // Full monthly gross from employee master (unprorated)
+      const grossSalary = Number(emp.basic || 0)
+        + (emp.hasHRA ? Number(emp.hraAmount || 0) : 0)
+        + (emp.hasFoodAllowance ? Number(emp.foodAmount || 0) : 0)
+        + (emp.hasPhoneBillAllowance ? Number(emp.phoneBillAmount || 0) : 0)
+        + (emp.hasMobilePhoneAllowance ? Number(emp.mobilePhoneAmount || 0) : 0)
+        + (emp.hasConveyance ? Number(emp.conveyanceAmount || 1600) : 0)
+        + Number(emp.otherAllowance || 0);
+      // Sum salary-paid days and total working days from payroll records for the year
+      let paidDays = 0, totalDays = 0;
+      for (let mo = 1; mo <= 12; mo++) {
+        const pr = DB.getPayroll(emp.id, mo, yr);
+        if (pr) {
+          paidDays += (Number(pr.presentDays || 0) + Number(pr.leaveDays || 0));
+          totalDays += Number(pr.workingDays || 0);
+        }
       }
-      amount = Math.round(amount);
+      // Fall back to attendance records if no payroll data
+      if (!totalDays) {
+        const att = DB.getAttendance().filter(a => a.empId === emp.id && a.date.startsWith(yrStr));
+        paidDays = att.filter(a => ['P','present','HD','half-day','on-leave','PL','SL','CL','EL','WO','H','paid'].includes(a.status)).length;
+        totalDays = paidDays || 1;
+      }
+      // Formula: min((paidDays/totalDays)*12, 12) * (grossSalary/12)
+      const payableMonths = totalDays > 0 ? Math.min((paidDays / totalDays) * 12, 12) : 0;
+      const amount = Math.round((grossSalary / 12) * payableMonths);
       total += amount;
       return `<tr>
         <td>${i+1}</td><td>${emp.empCode||''}</td>
         <td>${emp.firstName||''} ${emp.lastName||''}</td>
         <td>${emp.designation||'-'}</td><td>${emp.department||'-'}</td>
-        <td class="text-end">${currFmt(basic)}</td>
-        <td>${labels[formula]||formula}</td>
+        <td class="text-end">${currFmt(grossSalary)}</td>
+        <td class="text-center">${paidDays}</td>
+        <td class="text-end">${numFmt(payableMonths)}</td>
         <td class="text-end fw-600">${currFmt(amount)}</td>
-        <td class="text-end">${currFmt(amount)}</td>
       </tr>`;
-    }).join('') + `<tr class="table-dark fw-bold"><td colspan="7" class="text-end">Total Bonus:</td><td class="text-end">${currFmt(total)}</td><td class="text-end">${currFmt(total)}</td></tr>`;
+    }).join('') + `<tr class="table-dark fw-bold"><td colspan="8" class="text-end">Total Bonus:</td><td class="text-end">${currFmt(total)}</td></tr>`;
   },
 
   openBonusForm() {
